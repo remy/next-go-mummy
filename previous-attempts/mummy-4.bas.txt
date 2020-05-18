@@ -1,0 +1,193 @@
+10 ; Oh Mummy (clone), Remy Sharp 2020
+20 RUN AT 2: REM 3.5Mhz
+25 ; RANDOMIZE 5
+30 ;
+50 PROC init()
+60 PROC initBaddies()
+70 ;
+80 ; define player and game state
+90 LET %x=160: LET %y=32: LET %l=3: LET %s=56:;s= SPRITE
+100 LET %d=1: LET %z=4:; direction & speed
+110 LET %t=3: LET %P(2)=10:; t=baddiespeed, %P = last position
+160 ;
+200 ; game loop
+201 ; PROC fps()
+202 IF INKEY$ ="s" THEN GO TO 10:;restart
+210 IF %l=0 THEN : PROC gameOver(): GO TO 10 :; fixme only do when changed
+220 ; show lives FIXME only render when needed)
+221 FOR %i=0 TO 2: SPRITE %11+i,264,%56+(i*20),9,%i<l: NEXT %i
+225 ; footsteps
+227 PROC changeTile()
+228 ; player sprite
+230 SPRITE 10,%x,%y,%s,%d
+232 LET %P(0)=%x: LET %P(1)=%y
+233 ; movement
+235 LET %j= IN 31: ; TODO if %j &
+240 IF %( IN $fbfe >> 0&1^1) THEN LET %j=%(j+@1000): REM Q
+250 IF %( IN $fdfe >> 0&1^1) THEN LET %j=%(j+@0100): REM A
+260 IF %( IN $dffe >> 1&1^1) THEN LET %j=%(j+@0010): REM O
+270 IF %( IN $dffe >> 0&1^1) THEN LET %j=%(j+@0001): REM P
+272 ; if I can't move on x plane, check y
+279 IF %x MOD 48 <> 0 THEN GO TO %300
+280 IF %j&@1000=@1000 THEN GO SUB 7000: REM up
+290 IF %j&@0100=@0100 THEN GO SUB 7100: REM down
+299 ; if I can't move on y plane, skip
+300 IF %y MOD 48 <> 0 THEN GO TO 400
+310 IF %j&@0010=@0010 THEN GO SUB 7200: REM left
+320 IF %j&@0001=@0001 THEN GO SUB 7300: REM right
+399 ;
+400 ; check for map edge TODO only check if value changed
+401 ;
+410 IF %x<48 THEN : LET %x=48: ELSE IF %x>240 THEN : LET %x=240
+420 IF %y<48 THEN : LET %y=48: ELSE IF %y>192 THEN : LET %y=192
+499 ;
+500 ; process baddies, current baddie = %b
+501 ;
+510 LET %b=0
+520 PROC baddie()
+525 SPRITE %b+1,%B(i),%B(i+1),%B(i+2),%B(i+5)
+530 LET %b=%b+1: IF %b<3 THEN GO TO %520
+998 ;
+999 GO TO %200:;loop
+1000 ;
+1010 ; leave tread marks
+1020 ;
+1030 DEFPROC changeTile():;up=0,down=1,left=2,right=3
+1035 IF %P(2)=10 THEN ENDPROC
+1040 BANK 14 POKE 0,%P(2)
+1050 TILE 1,1 AT 0,0 TO %P(0)/16-2,%P(1)/16-2
+1060 ENDPROC
+2000 ;
+2010 ; handle baddies
+2020 ;
+2030 DEFPROC baddie()
+2040 LET %i=%b*6:;6props(easy TO messthisup!)
+2045 ; render sprite
+2050 IF %B(i+4)=0 THEN ENDPROC :;thisbaddieisdead
+2060 ;
+2067 ; print %b,0;%b;":";%x/16 = B(i)/16;"    " IF %x/16 = B(i)/16 AND (y/16 = B(i+1)/16)
+2070 IF %B(i)-x<16 AND (B(i+1)-y<16) THEN LET %B(i+4)=0: LET %B(i+5)=0: LET %l=%l-1: ENDPROC
+2080 ;
+2110 LET %j=%B(i+3)
+2120 IF %j=1 THEN GO SUB %3000: IF %B(i+1) MOD 48 <> 0 THEN ENDPROC :;down
+2130 IF %j=2 THEN GO SUB %3100: IF %B(i+1) MOD 48 <> 0 THEN ENDPROC :;up
+2140 IF %j=4 THEN GO SUB %3200: IF %B(i) MOD 48 <> 0 THEN ENDPROC :;left
+2150 IF %j=8 THEN GO SUB %3300: IF %B(i) MOD 48 <> 0 THEN ENDPROC :;right
+2160 ;
+2170 ; change direction, since we got this far
+2180 LET %B(i+3)=%1 << RND 4:;qaop/direction
+2190 ENDPROC
+3010 ;
+3020 ; baddie down
+3030 ;
+3040 LET %B(i+1)=%B(i+1)+t
+3050 IF %B(i+1)>192 THEN : LET %B(i+1)=192:;TODOdecidewhetherwerotate
+3060 LET %B(i+2)=55: LET %B(i+5)=%B(i+5)^@1000:;set SPRITE TO up, AND flipbits
+3070 RETURN
+3080 ;
+3120 ; baddie up
+3130 ;
+3140 LET %B(i+1)=%B(i+1)-t
+3150 IF %B(i+1)<48 THEN : LET %B(i+1)=48:;TODOdecidewhetherwerotate
+3160 LET %B(i+2)=54: LET %B(i+5)=%B(i+5)^@1000:;set SPRITE TO up, AND flipbits
+3170 RETURN
+3180 ;
+3220 ; baddie left
+3230 ;
+3240 LET %B(i)=%B(i)-t
+3250 IF %B(i)<48 THEN : LET %B(i)=48:;TODOdecidewhetherwerotate
+3260 LET %B(i+2)=%B(i+2)+1: IF %B(i+2)>53 THEN LET %B(i+2)=52:;animate SPRITE
+3270 LET %B(i+5)=%@0001:; AND flipbits
+3280 RETURN
+3290 ;
+3320 ; baddie right
+3330 ;
+3340 LET %B(i)=%B(i)+t
+3350 IF %B(i)>240 THEN : LET %B(i)=240
+3360 LET %B(i+2)=%B(i+2)+1: IF %B(i+2)>53 THEN LET %B(i+2)=52:;animate SPRITE
+3370 LET %B(i+5)=%@1001:; AND flipbits
+3380 RETURN
+3390 ;
+6999 ;
+7000 ; move up
+7001 ;
+7010 LET %P(2)=0
+7020 LET %y=%y-z
+7030 LET %d=%d^@1000
+7040 LET %s=58
+7050 RETURN
+7099 ;
+7100 ; move down
+7101 ;
+7110 LET %P(2)=1
+7120 LET %y=%y+z
+7130 LET %d=%d^@1000
+7140 LET %s=59
+7150 RETURN
+7199 ;
+7200 ; move left
+7201 ;
+7210 LET %P(2)=2
+7220 LET %x=%x-z
+7230 LET %d=%@1001
+7240 LET %s=%s+1: IF %s>57 THEN LET %s=56
+7250 RETURN
+7299 ;
+7300 ; move right
+7301 ;
+7310 LET %P(2)=3
+7320 LET %x=%x+z
+7330 LET %d=%@0001
+7340 LET %s=%s+1: IF %s>57 THEN LET %s=56
+7350 RETURN
+7999 ;
+8000 ;
+8010 ; init
+8020 ;
+8030 DEFPROC init()
+8035 LAYER 2,1: CLS
+8040 LOAD "mummy-clear.spr" BANK 13: REM load spritesheet
+8050 LOAD "mummy-3.map" BANK 14: REM load tile map
+8060 TILE BANK 13: REM point tiles to spritesheet
+8070 TILE DIM 14,0,16,16: REM bank 14, offset 0, tilemap width 16 tiles, tile size 16
+8080 TILE 16,12: REM print tile for 16 tile cols by 12 tile rows
+8090 LOAD "mummy-clear.spr" BANK 16,0,4096
+8100 SPRITE BANK 13
+8110 ENDPROC
+8120 ;
+8200 DEFPROC gameOver()
+8210 INVERSE 1: PRINT AT 6,11;"GAME OVER"
+8220 REPEAT : REPEAT UNTIL INKEY$ ="s": INVERSE 1
+8500 ;
+8510 ; initBaddies: %B=Array([x,y,spr,angle(0: x, 1: y),direction(0: backward, 1: forward),alive])
+8520 ; note: i*j = j properties per baddie
+8530 DEFPROC initBaddies()
+8535 LET %j=6:;nprops
+8540 FOR %i=0 TO 2:;totalbaddies
+8550 LET %B(i*j)=60:;% RND 192+48
+8560 LET %B((i*j)+1)=% RND 4*48+48
+8570 LET %B((i*j)+2)=53:; SPRITE
+8580 LET %B((i*j)+3)=%1 << ( RND 2+2):;qaop/direction
+8590 LET %B((i*j)+4)=1:;alive
+8591 LET %B((i*j)+5)=1:; SPRITE flags
+8600 NEXT %i
+8610 PAPER 255: INK 0: BORDER 0:;backgroundblack,textwhite
+8620 SPRITE CLEAR : SPRITE PRINT 1
+8650 ENDPROC
+9799 ;
+9800 DEFPROC fps()
+9805 LOCAL %b
+9810 LET %b=% PEEK 23672
+9820 LET %f=%b-a
+9830 IF %b<a THEN LET %f=%f+256
+9840 LET %a=%b
+9850 ENDPROC
+9899 ;
+9900 ;Quick save
+9901 ;
+9910 ; SPRITE PRINT 0: SAVE "mummy-3.bas" LINE 9999: STOP
+9911 CLEAR : SPRITE PRINT 0: SAVE "mummy-3.bas": STOP
+9996 ;
+9997 ;Boot game
+9998 ;
+9999 PROC init(): GO TO 5

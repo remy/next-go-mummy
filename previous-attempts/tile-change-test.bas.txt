@@ -1,0 +1,22 @@
+1 RUN AT 3
+10 PROC init()
+20 REPEAT
+30 ; PRINT AT 3,0;"ok"
+50 ; PRINT AT 4,0;% REG $6B;",";% REG $6C
+60 IF INKEY$ <> "" THEN PROC changeTile()
+200 REPEAT UNTIL 1=0
+230 DEFPROC init()
+235 LAYER 2,1: CLS
+240 LOAD "mummy-clear.spr" BANK 13: REM load spritesheet
+250 LOAD "mummy-3.map" BANK 14: REM load tile map
+260 TILE BANK 13: REM point tiles to spritesheet
+270 TILE DIM 14,0,16,16: REM bank 14, offset 0, tilemap width 16 tiles, tile size 16
+280 TILE 16,12: REM print tile for 16 tile cols by 12 tile rows
+290 LOAD "mummy-clear.spr" BANK 16,0,4096
+300 SPRITE BANK 13
+310 ENDPROC
+400 DEFPROC changeTile()
+425 BANK 14 POKE 0,9
+427 TILE 1,1 AT 0,0 TO 1,1
+430 ENDPROC
+

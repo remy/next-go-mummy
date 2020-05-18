@@ -1,0 +1,83 @@
+5 ;RUN AT 2: REM run fast
+10 LAYER 2,1: CLS
+15 PAPER 255: INK 0: BORDER 0: REM background black, text white
+30 LOAD "mummy-2.spr" BANK 13: REM load spritesheet
+40 LOAD "mummy-2.map" BANK 14: REM load tile map
+50 TILE BANK 13: REM point tiles to spritesheet
+55 TILE DIM 14,0,16,16: REM bank 14, offset 0, tilemap width 16 tiles, tile size 16
+60 TILE 16,12: REM print tile for 16 tile cols by 12 tile rows
+100 LOAD "mummy-2.spr" BANK 16,0,4096
+110 SPRITE BANK 13
+120 SPRITE CLEAR : SPRITE PRINT 1
+130 LET %x=48: LET %y=48: LET %z=41
+140 LET %d= BIN 1: LET %s=4: REM prop and speed
+150 GO SUB 8000
+1100 REM check position
+1120 IF %x<48 THEN LET %x=48
+1125 IF %x>240 THEN LET %x=240
+1130 IF %y<48 THEN LET %y=48
+1135 IF %y>192 THEN LET %y=192
+1190 LET %o= IN 57342
+1191 LET %q= IN 64520
+1192 LET %a= IN 65278
+1199 PRINT AT 0,0;%x;"/";%y;"   "
+1200 SPRITE 0,%x,%y,%z,%d
+1500 ; combined movement
+1510 LET %j= IN 31:; read the joystick
+1511 PRINT AT 10,0;%j;"--";%j & @1000;"   "
+2000 IF %( IN $fbfe >> 0&1^1) THEN LET %j=%(j+@1000): REM q
+2010 IF %( IN $fdfe >> 0&1^1) THEN LET %j=%(j+@0100): REM a
+2020 IF %( IN $dffe >> 1&1^1) THEN LET %j=%(j+@0010): REM o
+2030 IF %( IN $dffe >> 0&1^1) THEN LET %j=%(j+@0001): REM p
+2040 IF %j&@1000=@1000 THEN GO SUB 7000: REM up
+2050 IF %j&@0100=@0100 THEN GO SUB 7100: REM down
+2060 IF %j&@0010=@0010 THEN GO SUB 7200: REM left
+2070 IF %j&@0001=@0001 THEN GO SUB 7300: REM right
+2900 GO SUB 8100
+2990 GO TO 1100
+3000 GO TO 1000
+7000 REM move up
+7005 IF %x MOD 48 <> 0 THEN RETURN
+7010 LET %y=%y-s
+7020 LET %d=%d^ BIN 00001000
+7030 LET %z=48
+7040 RETURN
+7100 REM move down
+7105 IF %x MOD 48 <> 0 THEN RETURN
+7110 LET %y=%y+s
+7120 LET %d=%d^ BIN 00001000
+7130 LET %z=45
+7140 RETURN
+7200 REM move left
+7205 IF %y MOD 48 <> 0 THEN RETURN
+7210 LET %x=%x-s
+7220 LET %d= BIN 00001001
+7230 LET %z=%z+1: IF %z>43 THEN LET %z=41
+7240 RETURN
+7300 REM move right
+7305 IF %y MOD 48 <> 0 THEN RETURN
+7310 LET %x=%x+s
+7320 LET %d= BIN 00000001
+7330 LET %z=%z+1: IF %z>43 THEN LET %z=41
+7340 RETURN
+8000 ; baddies
+8005 LET nb=1
+8010 DIM b(nb,4)
+8020 FOR i=1 TO nb
+8030 LET b(i,1)= INT ( RND *48):; baddie.x
+8040 LET b(i,2)=48:;INT ( RND *48):; baddie.y
+8050 LET b(i,3)=38
+8060 LET b(i,4)=1:; alive
+8070 NEXT i
+8099 RETURN
+8100 FOR i=1 TO nb
+8120 LET b(i,1)=b(i,1)+1: LET b(i,3)=b(i,3)+1
+8130 LOCAL %x: LET %x=b(i,1)
+8150 IF b(i,3)>40 THEN LET b(i,3)=38
+8180 IF %x<48 THEN LET %x=48
+8190 IF %x>240 THEN LET %x=240
+8200 SPRITE 0,%x,b(i,2),b(i,3),b(i,4)
+8210 NEXT i
+8220 RETURN
+9998 STOP
+9999 CLEAR : SAVE "mummy-2.bas"
