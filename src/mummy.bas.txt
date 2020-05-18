@@ -60,26 +60,28 @@ DEFPROC checkTomb()
   LET %e=%(6*((y-48)/40))+((x-32)/48): ; x/y as aisle index
   IF %e=a THEN ENDPROC : ; we were just there (%a is last position)
   ;
-  %f=%e-a
-  %k=% ABS SGN {f}=1: ; k tracks the direction - 1 for X, 0 for Y
+  %f=%e-a: ; f is forward +1 or backward -1
+  %k=% ABS SGN {f}=1: ; k tracks the axis, +1 for X, 0 for Y
   ;
   IF % SGN {f < 0} THEN %g=%a: ELSE %g=%e
   IF %k THEN PROC getXTombs() TO %g,%h: ELSE PROC getYTombs() TO %g,%h
-  IF %g > 20 THEN %g=20: ; assign out of bounds to the junk element
+  IF %g > 20 THEN %g=20: ; assign out of bounds to the junk element (index 20)
   IF %h > 20 THEN %h=20
+  ; bitwise op below is $current wall & (0xF0 + wall, 1 top, 2 right, 4 bottom, 8 left)
+  ; importantly this leaves the first 4 bits untouched
   IF %k THEN %T[g]=%T[g]&@11111101:%T[h]=%T[h]&@11110111: ELSE %T[g]=%T[g]&@11111011:%T[h]=%T[h]&@11111110
-  IF %T[g]=0 THEN PROC openTomb(%g):%T[g]=%$f0
-  IF %T[h]=0 THEN PROC openTomb(%h):%T[h]=%$f0
+  IF %T[g]=0 THEN PROC openTomb(%g):%T[g]=%$f0: ; if tomb above is unlocked (0x00) then open and set to 0xF0 (locked)
+  IF %T[h]=0 THEN PROC openTomb(%h):%T[h]=%$f0: ; if tomb below is unlocked
   ;
-  LET %a=%e: ; store the last position
+  LET %a=%e: ; save the last position
 ENDPROC
 ;
-DEFPROC getXTombs()
+DEFPROC getXTombs(): ; uses scoped %g var from checkTomb
   %h=%1+(g/6)
   %i=%g-h
 ENDPROC =%i-5,%i
 ;
-DEFPROC getYTombs()
+DEFPROC getYTombs(): ; uses scoped %g var from checkTomb
   %i=%g-6-(g/6)
 ENDPROC =%i,%i+1
 ;
@@ -104,7 +106,8 @@ DEFPROC baddie()
   LET %i=%b*6: ; 6 props (easy to mess this up!)
   ;
   IF %B(i+4)=0 THEN ENDPROC : ; this baddie is dead
-  IF %B(i+4)=1 AND SPRITE OVER (b+1,10,3) THEN LET %B(i+4)=0: LET %B(i+5)=0: PROC takeLife(): ENDPROC
+  ; else (baddie is alive) and baddie is over player sprite (spr 10): kill baddie, turn off sprite (5), take life and bail
+  IF % SPRITE OVER (b+1,10,3,3) THEN LET %B(i+4)=0: LET %B(i+5)=0: PROC takeLife(): ENDPROC
   ;
   LET %j=%B(i+3)
   IF %j=1 THEN PROC baddieD(): IF %B(i+1)-48 MOD 40 THEN ENDPROC : ;down
@@ -181,11 +184,11 @@ ENDPROC
 ;
 DEFPROC initSprites()
   LAYER 2,1: CLS
-  LOAD "mummy.spr" BANK 13: REM load spritesheet
-  LOAD "mummy.map" BANK 14: REM load tile map
-  TILE BANK 13: REM point tiles to spritesheet
-  TILE DIM 14,0,16,16: REM bank 14, offset 0, tilemap width 16 tiles, tile size 16
-  TILE 16,12: REM print tile for 16 tile cols by 12 tile rows
+  LOAD "mummy.spr" BANK 13: ; load spritesheet
+  LOAD "mummy.map" BANK 14: ; load tile map created at https://zx.remysharp.com/sprites/
+  TILE BANK 13: ; point tiles to spritesheet
+  TILE DIM 14,0,16,16: ; bank 14, offset 0, tilemap width 16 tiles, tile size 16
+  TILE 16,12: ; print tile for 16 tile cols by 12 tile rows
   LOAD "mummy.spr" BANK 16,0,4096
   SPRITE BANK 13
   SPRITE CLEAR : SPRITE PRINT 1
@@ -202,12 +205,12 @@ ENDPROC
 DEFPROC initBaddies()
   LET %j=6: ;n props
   FOR %i=0 TO 2: ;total baddies
-    LET %B(i*j)=% RND 192+48: ; x
-    LET %B((i*j)+1)=% RND 4*48+48: ; y
-    LET %B((i*j)+2)=53: ; SPRITE
-    LET %B((i*j)+3)=%1 << ( RND 2+2): ;qaop/direction
-    LET %B((i*j)+4)=1: ; alive
-    LET %B((i*j)+5)=1: ; sprite flags
+    LET %B(i*j)=% RND 192+48: ; 0 = x
+    LET %B((i*j)+1)=% RND 4*48+48: ; 1 = y
+    LET %B((i*j)+2)=53: ; 2 = SPRITE
+    LET %B((i*j)+3)=%1 << ( RND 2+2): ;3 = qaop/direction
+    LET %B((i*j)+4)=1: ; 4 = alive
+    LET %B((i*j)+5)=1: ; 5 = sprite flags
   NEXT %i
 ENDPROC
 ;

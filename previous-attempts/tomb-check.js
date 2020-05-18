@@ -2,7 +2,6 @@ const h = 4;
 const w = 5 + 1;
 const length = h * (w - 1);
 const tombs = Array.from({ length }, () => 0b1111); // ? $.length
-// const grid = Array.from({ length: (h + 1) * (w + 1) }); // ? $.length
 
 let last = 3;
 
@@ -43,12 +42,6 @@ function test(i) {
 
   return { axis, res };
 }
-
-// [
-//   0,
-//   1,
-
-// ].forEach(test);
 
 test(2); // ?
 test(1); // ?
