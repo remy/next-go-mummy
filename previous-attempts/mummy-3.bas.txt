@@ -6,13 +6,13 @@
 60 PROC initBaddies()
 70 ;
 80 ; define player and game state
-90 LET %x=48: LET %y=48: LET %s=1:; s = sprite
-100 LET %d=1: LET %z=4:; direction & speed
-110 LET %t=3:; baddie speed
+90 LET %x=48: LET %y=48: LET %s=1: ; s = sprite
+100 LET %d=1: LET %z=4: ; direction & speed
+110 LET %t=3: ; baddie speed
 160 ;
 200 ; game loop
 201 ; PROC fps()
-202 IF INKEY$ ="s" THEN GO TO 10:; restart
+202 IF INKEY$ ="s" THEN GO TO 10: ; restart
 210 ;
 220 ; move player
 225 ; PRINT AT 0,0;"x:";%x;",y:";%y;";fps:";%f;";t:";%t;"     "
@@ -34,15 +34,15 @@
 399 ;
 400 ; check for map edge
 401 ;
-410 IF %x<48 THEN : LET %x=48: ELSE IF %x>240 THEN : LET %x=240
-420 IF %y<48 THEN : LET %y=48: ELSE IF %y>192 THEN : LET %y=192
+410 IF %x < 48 THEN : LET %x=48: ELSE IF %x > 240 THEN : LET %x=240
+420 IF %y < 48 THEN : LET %y=48: ELSE IF %y > 192 THEN : LET %y=192
 499 ;
 500 ; baddies - current %i
 501 ;
 510 LET %b=0
 549 ;
 550 ; start baddie checks
-580 LET %j=%6:; 7 props
+580 LET %j=%7: ; 7 props
 589 ;
 590 ; print baddie
 600 SPRITE %b+1,%B(b*j),%B((b*j)+1),%B((b*j)+2),1
@@ -54,28 +54,28 @@
 648 ;
 649 ; change direction randomly
 650 ; LET %B((b*j)+3)=% RND 2: LET %B((b*j)+4)=% RND 2
-651 LET %B((b*j)+ 3 + RND 2)=% RND 2
+651 LET %B((b*j)+3+ RND 2)=% RND 2
 658 ;
 659 ; reassign %i after changing direction
 660 LET %i=%B((b*j)+3)
 661 ;
 670 ; move baddie
 671 ;
-700 IF %B((b*j)+4)=0 THEN : LET %B((b*j)+i)=%B((b*j)+i)+t: GO TO 705:; move X
+700 IF %B((b*j)+4)=0 THEN : LET %B((b*j)+i)=%B((b*j)+i)+t: GO TO 705: ; move X
 701 LET %B((b*j)+i)=%B((b*j)+i)-t: LET %B((b*j)+2)=7: ; move Y
 708 ; check if baddie is on edge of map
 709 ;
-710 IF %B((b*j)+i)<48 THEN : LET %B((b*j)+i)=48: GO TO 650: ; rotate
+710 IF %B((b*j)+i) < 48 THEN : LET %B((b*j)+i)=48: GO TO 650: ; rotate
 720 IF %i=0 THEN GO TO 750
-730 IF %B((b*j)+i)>192 THEN : LET %B((b*j)+i)=192: GO TO 650: ; rotate
+730 IF %B((b*j)+i) > 192 THEN : LET %B((b*j)+i)=192: GO TO 650: ; rotate
 740 GO TO 800
-750 IF %B((b*j)+i)>240 THEN : LET %B((b*j)+i)=240: GO TO 650: ; rotate
+750 IF %B((b*j)+i) > 240 THEN : LET %B((b*j)+i)=240: GO TO 650: ; rotate
 797 ;
 798 ; next baddie
 799 ;
-800 LET %b=%b+1: IF %b<3 THEN GO TO %550
+800 LET %b=%b+1: IF %b < 3 THEN GO TO %550
 998 ;
-999 GO TO %200:; loop
+999 GO TO %200: ; loop
 6999 ;
 7000 ; move up
 7001 ;
@@ -95,14 +95,14 @@
 7201 ;
 7220 LET %x=%x-z
 7230 LET %d= BIN 00001001
-7240 LET %s=%s+1: IF %s>1 THEN LET %s=0
+7240 LET %s=%s+1: IF %s > 1 THEN LET %s=0
 7250 RETURN
 7299 ;
 7300 ; move right
 7301 ;
 7320 LET %x=%x+z
 7330 LET %d= BIN 00000001
-7340 LET %s=%s+1: IF %s>1 THEN LET %s=0
+7340 LET %s=%s+1: IF %s > 1 THEN LET %s=0
 7350 RETURN
 7999 ;
 8000 ;
@@ -123,16 +123,17 @@
 8515 ; note: i*j = j properties per baddie
 8520 ;
 8530 DEFPROC initBaddies()
-8535 LET %j=6 :; n props
+8535 LET %j=7: ; n props
 8540 FOR %i=0 TO 2:
-8550 LET %B( i*j)=% RND 4 * 48 + 48:; x
-8560 LET %B((i*j)+1)=% RND 4 * 48 + 48:; y
-8570 LET %B((i*j)+2)=5:; sprite
-8580 LET %B((i*j)+3)=% RND 4:; direction bit
-8590 LET %B((i*j)+4)=1:; alive
-8591 LET %B((i*j)+5)=1:; sprite flags
+8550 LET %B(i*j)=% RND 4*48+48: ; x
+8560 LET %B((i*j)+1)=% RND 4*48+48: ; y
+8570 LET %B((i*j)+2)=5: ; sprite
+8580 LET %B((i*j)+3)=% RND 2: ; angle (0-1)
+8585 LET %B((i*j)+4)=% RND 2: ; direction (0-1)
+8590 LET %B((i*j)+5)=1: ; alive
+8591 LET %B((i*j)+6)=1: ; sprite flags
 8600 NEXT %i
-8610 PAPER 255: INK 0: BORDER 0:; background black, text white
+8610 PAPER 255: INK 0: BORDER 0: ; background black, text white
 8620 SPRITE CLEAR : SPRITE PRINT 1
 8650 ENDPROC
 9799 ;
@@ -140,14 +141,13 @@
 9805 LOCAL %b
 9810 LET %b=% PEEK 23672
 9820 LET %f=%b-a
-9830 IF %b<a THEN LET %f=%f+256
+9830 IF %b < a THEN LET %f=%f+256
 9840 LET %a=%b
 9850 ENDPROC
 9899 ;
 9900 ;Quick save
 9901 ;
-9910 ; SPRITE PRINT 0: SAVE "mummy-3.bas" LINE 9999: STOP
-9911 SPRITE PRINT 0: SAVE "mummy-3.bas": STOP
+9910 SPRITE PRINT 0: SAVE "mummy-3.bas": STOP
 9996 ;
 9997 ;Boot game
 9998 ;

@@ -29,12 +29,12 @@
 1199 PRINT AT 0,0;%x;"   ";%y;"   "
 1200 SPRITE 0,%x,%y,%z,%d
 2000  ; combined movement
-2010 LET %j= IN 31 : ; read the joystick
-2015 PRINT AT 10,0;%j;"--";%j & @1000;"   "
-2020 IF %j & @1000 = @1000 THEN GO SUB 7000 : ;up
-2030 IF %j & @0100 = @0100 THEN GO SUB 7100 : ;down
-2040 IF %j & @0010 = @0010 THEN GO SUB 7200 : ;left
-2050 IF %j & @0001 = @0001 THEN GO SUB 7300 : ;right
+2010 LET %j= IN 31: ; read the joystick
+2015 PRINT AT 10,0;%j;"--";%j&@1000;"   "
+2020 IF %j&@1000=@1000 THEN GO SUB 7000: ;up
+2030 IF %j&@0100=@0100 THEN GO SUB 7100: ;down
+2040 IF %j&@0010=@0010 THEN GO SUB 7200: ;left
+2050 IF %j&@0001=@0001 THEN GO SUB 7300: ;right
 2100  ;IF %o & @1000 = @1000 THEN GO SUB 7300
 2110  ;IF %o & @0100 = @0100 THEN GO SUB 7200
 2120  ;IF %q & @1000 = @1000 THEN GO SUB 7000
@@ -71,9 +71,9 @@
 8010 DIM b(nb,4)
 8020 FOR i=1 TO nb
 8030 LET b(i,1)= INT ( RND *48): ; baddie.x
-8040 LET b(i,2)= 48: ;INT ( RND *48): ; baddie.y
-8050 LET b(i,3)= 38
-8060 LET b(i,4)=1 : ; alive
+8040 LET b(i,2)=48: ;INT ( RND *48):; baddie.y
+8050 LET b(i,3)=38
+8060 LET b(i,4)=1: ; alive
 8070 NEXT i
 8099 RETURN
 8100 FOR i=1 TO nb
@@ -87,4 +87,3 @@
 8220 RETURN
 9998 STOP
 9999 CLEAR : SAVE "mummy-2.bas"
-
