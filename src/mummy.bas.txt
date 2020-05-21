@@ -2,11 +2,12 @@
 #autoline
 #autostart
 ; Oh Mummy (clone), Remy Sharp 2020
-RUN AT 2: REM 3.5Mhz (0 = 3.5, 1 = 7 (aim), 2 = 14 (likely))
+RUN AT 1: REM 3.5Mhz (0 = 3.5, 1 = 7 (aim), 2 = 14 (likely))
 ;
 PROC initSprites()
 PROC initBaddies()
 PROC initTombs()
+
 ; PROC fps()
 ; core loop
 REPEAT
@@ -21,9 +22,9 @@ REPEAT UNTIL 0: ; repeat forever
 DEFPROC updateLoop()
   LET %b=0: ; baddie index
   REPEAT
-    IF %b < 3 THEN PROC baddie(): SPRITE %b+1,%B(i),%B(i+1),%B(i+2),%B(i+5)
+    IF %b < 1 THEN PROC baddie(): SPRITE %b+1,%B(i)+32,%B(i+1)+48,%B(i+2),%B(i+5)
     LET %b=%b+1
-  REPEAT UNTIL %b=3
+  REPEAT UNTIL %b=1
   PROC updatePlayer():
   ; PROC fps(): PRINT AT 0,0;%f;" ";%x/16+(y/16);" ": ; f big = bad, small = good
   PROC treadMark()
@@ -40,24 +41,25 @@ DEFPROC updatePlayer()
   ;
   IF %j&$0f=0 THEN LET %P=%$ffff: ENDPROC : ; play isn't moving, early exit
   ; if I can't move on x plane, check y
-  IF %(x-32) MOD 48 THEN : ELSE : IF %j&@0100 THEN PROC down(): ELSE IF %j&@1000 THEN PROC up()
+  IF %x MOD 48 THEN : ELSE : IF %j&@0100 THEN PROC down(): ELSE IF %j&@1000 THEN PROC up()
   ;
   PROC checkTomb(): ; check before we potentially move again
   ;
-  IF %(y-48) MOD 40 THEN : ELSE : IF %j&@0010 THEN PROC left(): ELSE IF %j&@0001 THEN PROC right():
+  IF %y MOD 40 THEN : ELSE : IF %j&@0010 THEN PROC left(): ELSE IF %j&@0001 THEN PROC right():
   ;
-  ; check for map edge TODO only check if value changed
-  IF %x < 32 THEN : LET %x=32: ELSE IF %x > 272 THEN : LET %x=272
-  IF %y < 48 THEN : LET %y=48: ELSE IF %y > 208 THEN : LET %y=208
+  ; note that %x > $ff means the integer has gone from 0, to -1, but it's unsigned
+  ; so it'll be up in the 65K range, so this check against 255 is good enough
+  IF %x > $ff THEN : LET %x=0: ELSE IF %x > 240 THEN : LET %x=240
+  IF %y > $ff THEN : LET %y=0: ELSE IF %y > 160 THEN : LET %y=160
   ;
   PROC checkTomb()
   ;
-  SPRITE 10,%x,%y,%s,%d
+  SPRITE 10,%x+32,%y+48,%s,%d
 ENDPROC
 ;
 DEFPROC checkTomb()
-  IF %(x-32 MOD 48) OR (y-48 MOD 40) THEN ENDPROC : ; only run on corners
-  LET %e=%(6*((y-48)/40))+((x-32)/48): ; x/y as aisle index
+  IF %(x MOD 48) OR (y MOD 40) THEN ENDPROC : ; only run on corners
+  LET %e=%(6*(y/40))+(x/48): ; x/y as aisle index
   IF %e=a THEN ENDPROC : ; we were just there (%a is last position)
   ;
   %f=%e-a: ; f is forward +1 or backward -1
@@ -93,11 +95,16 @@ ENDPROC
 ;
 ; leave tread marks
 DEFPROC treadMark(): ;up=0,down=1,left=2,right=3
+  ENDPROC
   IF %P=$ffff THEN ENDPROC : ; didn't move
   IF %P=2 THEN LET %i=%1: ELSE LET %i=%0: ; if left +1, right = -1
   IF %P=0 THEN LET %j=%1: ELSE LET %j=%0
   BANK 14 POKE 0,%P
-  TILE 1,1 AT 0,0 TO %x/16+i-2,%y/16+j-2
+  BANK 14 POKE 1,%63
+  BANK 14 POKE 32,%P+2
+  BANK 14 POKE 32,%63
+  ; TILE 4,4 AT 0,0 TO %x/16+i-2,%y/16+j-2: ;
+  ; TODO: add tile 63 (black) to alt sections
 ENDPROC
 ;
 ; handle baddies
@@ -110,10 +117,10 @@ DEFPROC baddie()
   IF % SPRITE OVER (b+1,10,3,3) THEN LET %B(i+4)=0: LET %B(i+5)=0: PROC takeLife(): ENDPROC
   ;
   LET %j=%B(i+3)
-  IF %j=1 THEN PROC baddieD(): IF %B(i+1)-48 MOD 40 THEN ENDPROC : ;down
-  IF %j=2 THEN PROC baddieU(): IF %B(i+1)-48 MOD 40 THEN ENDPROC : ;up
-  IF %j=4 THEN PROC baddieL(): IF %B(i)-32 MOD 48 THEN ENDPROC : ;left
-  IF %j=8 THEN PROC baddieR(): IF %B(i)-32 MOD 48 THEN ENDPROC : ;right
+  IF %j=1 THEN PROC baddieD(): IF %B(i+1) MOD 40 THEN ENDPROC : ;down
+  IF %j=2 THEN PROC baddieU(): IF %B(i+1) MOD 40 THEN ENDPROC : ;up
+  IF %j=4 THEN PROC baddieL(): IF %B(i) MOD 48 THEN ENDPROC : ;left
+  IF %j=8 THEN PROC baddieR(): IF %B(i) MOD 48 THEN ENDPROC : ;right
   ;
   ; rotate 1:3 times
   IF % RND 3=0 THEN LET %B(i+3)=%1 << RND 4: ;qaop/direction
@@ -121,26 +128,26 @@ ENDPROC
 ;
 DEFPROC baddieD(): ; baddie down
   %B(i+1)=%B(i+1)+z
-  IF %B(i+1) > 208 THEN :%B(i+1)=208: ;
+  IF %B(i+1) > 160 THEN :%B(i+1)=160: ;
   %B(i+2)=55:%B(i+5)=%B(i+5)^@1000: ;set sprite to up, and flip bits
 ENDPROC
 ;
 DEFPROC baddieU(): ; baddie up
   %B(i+1)=%B(i+1)-z
-  IF %B(i+1) < 48 THEN :%B(i+1)=48
+  IF %B(i+1) > $ff THEN :%B(i+1)=0
   %B(i+2)=54:%B(i+5)=%B(i+5)^@1000: ;set sprite to up, and flip bits
 ENDPROC
 ;
 DEFPROC baddieL(): ; baddie left
   %B(i)=%B(i)-z
-  IF %B(i) < 32 THEN :%B(i)=32:
+  IF %B(i) > $ff THEN :%B(i)=0:
   %B(i+2)=%B(i+2)+1: IF %B(i+2) > 53 THEN %B(i+2)=52: ;animate sprite
   %B(i+5)=%@0001: ; and flip bits
 ENDPROC
 ;
 DEFPROC baddieR(): ; baddie right
   %B(i)=%B(i)+z
-  IF %B(i) > 272 THEN :%B(i)=272
+  IF %B(i) > 240 THEN :%B(i)=240
   %B(i+2)=%B(i+2)+1: IF %B(i+2) > 53 THEN %B(i+2)=52: ; animate sprite
   %B(i+5)=%@1001: ; and flip bits
 ENDPROC
@@ -187,8 +194,8 @@ DEFPROC initSprites()
   LOAD "mummy.spr" BANK 13: ; load spritesheet
   LOAD "mummy.map" BANK 14: ; load tile map created at https://zx.remysharp.com/sprites/
   TILE BANK 13: ; point tiles to spritesheet
-  TILE DIM 14,0,16,16: ; bank 14, offset 0, tilemap width 16 tiles, tile size 16
-  TILE 16,12: ; print tile for 16 tile cols by 12 tile rows
+  TILE DIM 14,0,32,8: ; using tile bank 14, offset 0, tile 32 wide, tile size 8
+  TILE 32,24: ; print tile for 16 tile cols by 12 tile rows
   LOAD "mummy.spr" BANK 16,0,4096
   SPRITE BANK 13
   SPRITE CLEAR : SPRITE PRINT 1
@@ -205,8 +212,8 @@ ENDPROC
 DEFPROC initBaddies()
   LET %j=6: ;n props
   FOR %i=0 TO 2: ;total baddies
-    LET %B(i*j)=% RND 192+48: ; 0 = x
-    LET %B((i*j)+1)=% RND 4*48+48: ; 1 = y
+    LET %B(i*j)=% RND 192: ; 0 = x
+    LET %B((i*j)+1)=% RND 4*48: ; 1 = y
     LET %B((i*j)+2)=53: ; 2 = SPRITE
     LET %B((i*j)+3)=%1 << ( RND 2+2): ;3 = qaop/direction
     LET %B((i*j)+4)=1: ; 4 = alive
@@ -222,13 +229,13 @@ ENDPROC
 ;
 DEFPROC initNewGame()
   ; define player and game state
-  LET %x=144: LET %y=32: LET %l=4: LET %s=56: ; s= SPRITE
+  LET %x=120: LET %y=0: LET %l=4: LET %s=56: ; s= SPRITE
   LET %d=1: LET %z=8: ; direction & speed
   LET %P=%$ffff: ; t=baddie speed, %P = last position
   LET %a=%$ffff
   LET ctr=0
   SPRITE STOP : ; switch to batching
-  SPRITE 10,%x,%y,%s,%d
+  SPRITE 10,%x+32,%y+32,%s,%d
   PROC takeLife()
 ENDPROC
 ;
