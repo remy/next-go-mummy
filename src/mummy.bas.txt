@@ -1,14 +1,11 @@
-#program ohmummy
+#program mummy
 #autoline
 #autostart
 ; Oh Mummy (clone), Remy Sharp 2020
-RUN AT 1: REM 3.5Mhz (0 = 3.5, 1 = 7 (aim), 2 = 14 (likely))
+RANDOMIZE %1978
+RUN AT 2: REM 3.5Mhz (0 = 3.5, 1 = 7 (aim), 2 = 14 (likely))
 ;
-PROC initSprites()
-PROC initBaddies()
-PROC initTombs()
-
-; PROC fps()
+;PROC fps()
 ; core loop
 REPEAT
   PROC initNewGame(): ; setup new game
@@ -22,11 +19,12 @@ REPEAT UNTIL 0: ; repeat forever
 DEFPROC updateLoop()
   LET %b=0: ; baddie index
   REPEAT
-    IF %b < 1 THEN PROC baddie(): SPRITE %b+1,%B(i)+32,%B(i+1)+48,%B(i+2),%B(i+5)
+    IF %b < 2 THEN PROC baddie(): IF %B(i+4)=0 THEN %B(i+5)=0
+    SPRITE %b+1,%B(i)+32,%B(i+1)+48,%B(i+2),%B(i+5)
     LET %b=%b+1
-  REPEAT UNTIL %b=1
+  REPEAT UNTIL %b=2
   PROC updatePlayer():
-  ; PROC fps(): PRINT AT 0,0;%f;" ";%x/16+(y/16);" ": ; f big = bad, small = good
+  ; PROC fps(): PRINT AT 0,0;%f;"      ": ; f big = bad, small = good
   PROC treadMark()
   SPRITE MOVE INT
 ENDPROC
@@ -39,7 +37,9 @@ DEFPROC updatePlayer()
   IF %( IN $dffe >> 1&1^1) THEN LET %j=%(j+@0010): ; O
   IF %( IN $dffe >> 0&1^1) THEN LET %j=%(j+@0001): ; P
   ;
-  IF %j&$0f=0 THEN LET %P=%$ffff: ENDPROC : ; play isn't moving, early exit
+  ; NOTE I no longer do an early exit - this keeps the game speed constant, otherwise the baddies speed up
+  ; IF %j&$0f=0 THEN LET %P=%$ffff: ENDPROC : ; play isn't moving, early exit
+  ;
   ; if I can't move on x plane, check y
   IF %x MOD 48 THEN : ELSE : IF %j&@0100 THEN PROC down(): ELSE IF %j&@1000 THEN PROC up()
   ;
@@ -90,21 +90,20 @@ ENDPROC =%i,%i+1
 DEFPROC openTomb(%i)
   IF %i=20 THEN ENDPROC
   ON ERROR PRINT AT 0,0;%i;": ";%i MOD 5;": ";%16+((i MOD 5)*48);"/";%32+((i/4)*40);"     ": ENDPROC
-  LAYER ERASE %16+((i MOD 5)*48),%32+((i/5)*40),32,24,28: ; green fill 28
+  ; LAYER ERASE %16+((i MOD 5)*48),%32+((i/5)*40),32,24,28: ; green fill 28
+  PRINT AT 1,0;"tomb ";%i;" open"
 ENDPROC
 ;
 ; leave tread marks
-DEFPROC treadMark(): ;up=0,down=1,left=2,right=3
-  ENDPROC
+DEFPROC treadMark(): ;down=0,up=2,left=4,right=6
   IF %P=$ffff THEN ENDPROC : ; didn't move
-  IF %P=2 THEN LET %i=%1: ELSE LET %i=%0: ; if left +1, right = -1
-  IF %P=0 THEN LET %j=%1: ELSE LET %j=%0
-  BANK 14 POKE 0,%P
-  BANK 14 POKE 1,%63
-  BANK 14 POKE 32,%P+2
-  BANK 14 POKE 32,%63
-  ; TILE 4,4 AT 0,0 TO %x/16+i-2,%y/16+j-2: ;
-  ; TODO: add tile 63 (black) to alt sections
+  IF %P=4 THEN LET %i=%1: ELSE LET %i=%0: ; if left +1, right = -1
+  IF %P=2 THEN LET %j=%1: ELSE LET %j=%0
+  ;
+  IF %P > 3 THEN %k=%(x/8) MOD 2: ELSE %k=%(y/8) MOD 2:%i=%k:%j=%k
+  ;
+  TILE 1,2 AT %P+k,0 TO %x/8+i,%y/8+j+2
+  %P=%$ffff: ; now they're not moving
 ENDPROC
 ;
 ; handle baddies
@@ -112,9 +111,8 @@ ENDPROC
 DEFPROC baddie()
   LET %i=%b*6: ; 6 props (easy to mess this up!)
   ;
-  IF %B(i+4)=0 THEN ENDPROC : ; this baddie is dead
   ; else (baddie is alive) and baddie is over player sprite (spr 10): kill baddie, turn off sprite (5), take life and bail
-  IF % SPRITE OVER (b+1,10,3,3) THEN LET %B(i+4)=0: LET %B(i+5)=0: PROC takeLife(): ENDPROC
+  IF %B(i+4) AND SPRITE OVER (b+1,10,3,3) THEN LET %B(i+4)=0: LET %B(i+5)=0: PROC takeLife(): ENDPROC
   ;
   LET %j=%B(i+3)
   IF %j=1 THEN PROC baddieD(): IF %B(i+1) MOD 40 THEN ENDPROC : ;down
@@ -155,33 +153,33 @@ ENDPROC
 DEFPROC takeLife()
   LET %l=%l-1
   FOR %i=0 TO 2
-    SPRITE %11+i,%200+(i*16),%32,9,%i < l: ; draw lives
+    SPRITE %11+i,%200+(i*16),%32,60,%i < l: ; draw lives
   NEXT %i
 ENDPROC
 ;
 DEFPROC up(): ; move up
-  %P=0
+  %P=2
   %y=%y-z
   %d=%d^@1000
   %s=58
 ENDPROC
 ;
 DEFPROC down(): ; move down
-  %P=1
+  %P=0
   %y=%y+z
   %d=%d^@1000
   %s=59
 ENDPROC
 ;
 DEFPROC left(): ; move left
-  %P=2
+  %P=4
   %x=%x-z
   %d=%@1001
   %s=%s+1: IF %s > 57 THEN %s=56
 ENDPROC
 ;
 DEFPROC right(): ; move right
-  %P=3
+  %P=6
   %x=%x+z
   %d=%@0001
   %s=%s+1: IF %s > 57 THEN %s=56
@@ -199,6 +197,15 @@ DEFPROC initSprites()
   LOAD "mummy.spr" BANK 16,0,4096
   SPRITE BANK 13
   SPRITE CLEAR : SPRITE PRINT 1
+  ;
+  ; footfall marks
+  DATA 63,1,63,3,63,5,63,7
+  DATA 0,63,2,63,4,63,6,63
+  ; now we're going to push tiles into memory for feet
+  FOR %i=%0 TO %7: READ %j: BANK %14 POKE %i,%j: NEXT %i
+  FOR %i=%0 TO %7: READ %j: BANK %14 POKE %i+32,%j: NEXT %i
+  ; LOAD "feet.map" BANK 14: ; stick the feet over the original tilemap
+  RESTORE 10: ; reset the position of read for new games
   PAPER 255: INK 0: BORDER 6: ;background black (6 = yellow), text white
 ENDPROC
 ;
@@ -213,7 +220,7 @@ DEFPROC initBaddies()
   LET %j=6: ;n props
   FOR %i=0 TO 2: ;total baddies
     LET %B(i*j)=% RND 192: ; 0 = x
-    LET %B((i*j)+1)=% RND 4*48: ; 1 = y
+    LET %B((i*j)+1)=% RND 4*40: ; 1 = y
     LET %B((i*j)+2)=53: ; 2 = SPRITE
     LET %B((i*j)+3)=%1 << ( RND 2+2): ;3 = qaop/direction
     LET %B((i*j)+4)=1: ; 4 = alive
@@ -225,17 +232,24 @@ DEFPROC initTombs()
   FOR %i=0 TO 21: ; note that index 20 is used for dumping invalid/out of bounds
     LET %T(i)=%$0f: ; this is 00001111 - each edge will be bit masked, and once it hits 0, it's masked with 0xf0 so it's never 0 again
   NEXT %i
+  %W(0)=% RND 17
+  %W(1)=% RND 20
+  %W(2)=% RND 20
 ENDPROC
 ;
 DEFPROC initNewGame()
+  PROC initSprites()
+  PROC initBaddies()
+  PROC initTombs()
   ; define player and game state
-  LET %x=120: LET %y=0: LET %l=4: LET %s=56: ; s= SPRITE
+  ; LET %x=120: LET %y=0: LET %l=4: LET %s=56: ; s= SPRITE
+  LET %x=0: LET %y=0: LET %l=4: LET %s=56: ; s= SPRITE
   LET %d=1: LET %z=8: ; direction & speed
   LET %P=%$ffff: ; t=baddie speed, %P = last position
   LET %a=%$ffff
   LET ctr=0
   SPRITE STOP : ; switch to batching
-  SPRITE 10,%x+32,%y+32,%s,%d
+  ; SPRITE 10,%x+32,%y+32,%s,%d
   PROC takeLife()
 ENDPROC
 ;
