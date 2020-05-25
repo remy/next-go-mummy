@@ -7,9 +7,12 @@
 ; %a = player last corner, used for tomb calc - initilised to $FF
 ; b = baddie index
 ; B() = baddie array
+; c = baddie count
 ; %d = player sprite flags (mirror, etc)
 ; %l = player lives
 ; %P = player last position, used for tread marks - initilised to $FF
+; %q = bank array of map and objects on map
+; %r = current level
 ; %s = player sprite
 ; %T(21) = tomb array 0-19 with index 20 used for temp rendering, with 8bit flags
 ; %W(4) = array(4) of tombs with items behind theme
@@ -18,15 +21,15 @@
 ; %z = sprite speed (for both player and baddie) - constant at 8
 ;
 ; TMP VARIABLES
-; i, j, k - then - c, e, f, g, h, m, n, o, q, r
+; i, j, k - then - e, f, g, h, m, n, o, q
 ; **********************************
 ;
-RUN AT 2: REM 3.5Mhz (0 = 3.5, 1 = 7 (aim), 2 = 14 (likely))
-RANDOMIZE
+RUN AT 3: REM 3.5Mhz (0 = 3.5, 1 = 7 (aim), 2 = 14 (likely))
+RANDOMIZE 1
 ; clean the screen on stop
 ;ON ERROR TO e,l,s: ON ERROR : LAYER CLEAR : SPRITE CLEAR : BORDER 7: PRINT 0,0;"Error:";e;", ";l;":";s: STOP
 ;
-;PROC fps()
+PROC initOnce()
 ; core loop
 REPEAT
   PROC initNewGame(): ; setup new game
@@ -38,16 +41,17 @@ REPEAT UNTIL 0: ; repeat forever
 ;
 ; start main game loop - we do only one thing at a time in the main loop
 DEFPROC updateLoop()
-  LET %b=0: ; baddie index
-  REPEAT
-    PROC baddie(): ; IF %B(i+4)=0 THEN %B(i+5)=0
-    SPRITE %b+1,%B(i)+32,%B(i+1)+48,%B(i+2),%B(i+5)
-    LET %b=%b+1
-  REPEAT UNTIL %b=2
   PROC updatePlayer():
+  LET %b=1: ; baddie loop
+  REPEAT
+    PROC updateBaddie(): ; IF %B(i+4)=0 THEN %B(i+5)=0
+    ;   PRINT AT %b,0;%i;";";%B(i+5)&B(i+4)
+    SPRITE %b,%B(i)+32,%B(i+1)+48,%B(i+2),%B(i+5)&B(i+4)
+    LET %b=%b+1
+  REPEAT UNTIL %b=(c+1)
   ; PROC fps(): PRINT AT 0,0;%f;"      ": ; f big = bad, small = good
   PROC treadMark()
-  SPRITE MOVE INT
+  SPRITE MOVE
 ENDPROC
 ;
 DEFPROC updatePlayer()
@@ -78,9 +82,13 @@ DEFPROC updatePlayer()
   SPRITE 10,%x+32,%y+48,%s,%d
   ;
   ; FIXME need to know how many baddie there are
-  ; %i=% SPRITE OVER (10,1 TO 2)
-  ; PRINT AT 0,0;%i
-  ; IF %i AND B(i+4) THEN %B(i+4)=0:%B(i+5)=%B(i+5)|@1000000: PROC takeLife()
+  %i=% SPRITE OVER (10,1 TO c)
+  IF %i=0 THEN ENDPROC
+  %i=%i*6
+  IF %B(i+4)=0 THEN ENDPROC
+  %B(i+4)=0
+  %B(i+5)=0
+  PROC takeLife()
 ENDPROC
 ;
 DEFPROC checkTomb()
@@ -136,13 +144,24 @@ DEFPROC treadMark(): ;down=0,up=2,left=4,right=6
   %P=%$ffff: ; now they're not moving
 ENDPROC
 ;
+DEFPROC baddieBumping()
+  IF %b=c THEN ENDPROC
+  %j=% SPRITE OVER (b,b+1 TO c,7,7)
+  IF %j=0 THEN ENDPROC
+  ; PRINT AT %b,0;%b;":";%j;" "
+  IF %B(i+3) > 3 THEN %k=%@1100: ELSE %k=%@0011
+  %B(i+3)=%B(i+3)^k
+  %B((j*6)+3)=%B((j*6)+3)^k
+
+ENDPROC
+;
 ; handle baddies
 ;
-DEFPROC baddie()
+DEFPROC updateBaddie()
   LET %i=%b*6: ; 6 props (easy to mess this up!)
-  ;
   ; else (baddie is alive) and baddie is over player sprite (spr 10): kill baddie, turn off sprite (5), take life and bail
-  ; IF %B(i+4) AND SPRITE OVER (b+1,10,3,3) THEN LET %B(i+4)=0: LET %B(i+5)=0: PROC takeLife(): ENDPROC
+  ; FOR %k=1 TO %c-1
+  ; PROC baddieBumping()
   ;
   LET %j=%B(i+3)
   IF %j=1 THEN PROC baddieD(): IF %B(i+1) MOD 40 THEN ENDPROC : ;down
@@ -157,28 +176,28 @@ ENDPROC
 DEFPROC baddieD(): ; baddie down
   %B(i+1)=%B(i+1)+z
   IF %B(i+1) > 160 THEN :%B(i+1)=160: ;
-  %B(i+2)=55
+  %B(i+2)=11
   %B(i+5)=%B(i+5)^@1000: ;set sprite to up, and flip bits
 ENDPROC
 ;
 DEFPROC baddieU(): ; baddie up
   %B(i+1)=%B(i+1)-z
   IF %B(i+1) > $ff THEN :%B(i+1)=0
-  %B(i+2)=54
+  %B(i+2)=10
   %B(i+5)=%B(i+5)^@1000: ;set sprite to up, and flip bits
 ENDPROC
 ;
 DEFPROC baddieL(): ; baddie left
   %B(i)=%B(i)-z
   IF %B(i) > $ff THEN :%B(i)=0:
-  %B(i+2)=%B(i+2)+1: IF %B(i+2) > 53 THEN %B(i+2)=52: ;animate sprite
-  %B(i+5)=%B(i+5)&1: ; turn off all bits and leave bit 0 alone
+  %B(i+2)=%B(i+2)+1: IF %B(i+2) > 9 THEN %B(i+2)=8: ;animate sprite
+  %B(i+5)=%B(i+5)&@0001: ; turn off all bits and leave bit 0 alone
 ENDPROC
 ;
 DEFPROC baddieR(): ; baddie right
   %B(i)=%B(i)+z
   IF %B(i) > 240 THEN :%B(i)=240
-  %B(i+2)=%B(i+2)+1: IF %B(i+2) > 53 THEN %B(i+2)=52: ; animate sprite
+  %B(i+2)=%B(i+2)+1: IF %B(i+2) > 9 THEN %B(i+2)=8: ; animate sprite
   %B(i+5)=%(B(i+5)&1)+@1000: ; and flip bits %@1001
 ENDPROC
 ;
@@ -193,38 +212,34 @@ DEFPROC up(): ; move up
   %P=2
   %y=%y-z
   %d=%d^@1000
-  %s=58
+  %s=34
 ENDPROC
 ;
 DEFPROC down(): ; move down
   %P=0
   %y=%y+z
   %d=%d^@1000
-  %s=59
+  %s=35
 ENDPROC
 ;
 DEFPROC left(): ; move left
   %P=4
   %x=%x-z
   %d=%@1001
-  %s=%s+1: IF %s > 57 THEN %s=56
+  %s=%s+1: IF %s > 33 THEN %s=32
 ENDPROC
 ;
 DEFPROC right(): ; move right
   %P=6
   %x=%x+z
   %d=%@0001
-  %s=%s+1: IF %s > 57 THEN %s=56
+  %s=%s+1: IF %s > 33 THEN %s=32
 ENDPROC
 ;
 ; init functions
 ;
 DEFPROC initSprites()
-  LAYER 2,1: CLS
-  LOAD "mummy.spr" BANK 13: ; load spritesheet
   LOAD "mummy.map" BANK 14: ; load tile map created at https://zx.remysharp.com/sprites/
-  TILE BANK 13: ; point tiles to spritesheet
-  TILE DIM 14,0,32,8: ; using tile bank 14, offset 0, tile 32 wide, tile size 8
   TILE 32,24: ; print tile for 16 tile cols by 12 tile rows
   LOAD "mummy.spr" BANK 16,0,4096
   SPRITE BANK 13
@@ -240,21 +255,31 @@ DEFPROC initSprites()
   PAPER 255: INK 0: BORDER 6: ;background black (6 = yellow), text white
 ENDPROC
 ;
+DEFPROC xyToIndex(x,y)
+ENDPROC =(32*y)+x
+;
 DEFPROC gameOver()
-  PRINT AT 6,11; INVERSE 1;"GAME OVER"; INVERSE 0
+  INVERSE 1
+  PRINT AT 4,7;"                 "
+  PRINT AT 5,7;"                 "
+  PRINT AT 6,7;"    GAME OVER    "
+  PRINT AT 7,7;"                 "
+  PRINT AT 8,7;"                 "
+  INVERSE 0
   REPEAT : REPEAT UNTIL INKEY$ ="s":
 ENDPROC
 ;
 ; initBaddies: %B=Array([x,y,spr,angle(0: x, 1: y),direction(0: backward, 1: forward),alive])
 ; note: i*j = j properties per baddie
 DEFPROC initBaddies()
+  LET %c=9: ; global badie count
   LET %j=6: ;n props
-  FOR %i=0 TO 2: ;total baddies
+  FOR %i=1 TO %c: ;total baddies
     LET %B(i*j)=% RND 192: ; 0 = x
     LET %B((i*j)+1)=% RND 4*40: ; 1 = y
-    LET %B((i*j)+2)=53: ; 2 = SPRITE
+    LET %B((i*j)+2)=8: ; 2 = SPRITE
     LET %B((i*j)+3)=%1 << ( RND 2+2): ;3 = qaop/direction
-    LET %B((i*j)+4)=1: ; 4 = alive
+    LET %B((i*j)+4)=%$ff: ; 4 = alive
     LET %B((i*j)+5)=1: ; 5 = sprite flags
   NEXT %i
 ENDPROC
@@ -289,15 +314,29 @@ DEFPROC pickRandom()
   ; pickings are in global array W
 ENDPROC
 ;
+DEFPROC initOnce()
+  CLS
+  LAYER CLEAR
+  SPRITE CLEAR
+  ; LAYER OVER %@100
+  LAYER 2,1
+  LOAD "mummy.spr" BANK 13: ; load spritesheet
+  TILE BANK 13: ; point tiles to spritesheet
+  TILE DIM 14,0,32,8: ; using tile bank 14, offset 0, tile 32 wide, tile size 8
+  ; BANK NEW %q
+ENDPROC
+;
 DEFPROC initNewGame()
-  PROC initSprites()
-  PROC initBaddies()
-  PROC initTombs()
   ; define player and game state
-  LET %x=120: LET %y=0: LET %l=4: LET %s=56: ; s= SPRITE
+  ; BANK %q ERASE 0,768,0
+  LET %x=120: LET %y=0: LET %l=4: LET %s=32: ; s= SPRITE
   LET %d=1: LET %z=8: ; direction & speed
   LET %P=%$ffff: ; t=baddie speed, %P = last position
   LET %a=%$ffff
+  LET %r=1
+  PROC initSprites()
+  PROC initBaddies()
+  PROC initTombs()
   SPRITE STOP : ; switch to batching
   PROC takeLife()
 ENDPROC
