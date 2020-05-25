@@ -32,7 +32,6 @@ REPEAT
   PROC initNewGame(): ; setup new game
   REPEAT
     PROC updateLoop(): ; update logic and render
-    IF INKEY$ ="x" THEN %l=0
   REPEAT UNTIL %l=0: ; until zero lives
   PROC gameOver(): ; then print game over
 REPEAT UNTIL 0: ; repeat forever
@@ -41,7 +40,7 @@ REPEAT UNTIL 0: ; repeat forever
 DEFPROC updateLoop()
   LET %b=0: ; baddie index
   REPEAT
-    IF %b < 2 THEN PROC baddie(): ; IF %B(i+4)=0 THEN %B(i+5)=0
+    PROC baddie(): ; IF %B(i+4)=0 THEN %B(i+5)=0
     SPRITE %b+1,%B(i)+32,%B(i+1)+48,%B(i+2),%B(i+5)
     LET %b=%b+1
   REPEAT UNTIL %b=2
@@ -173,14 +172,14 @@ DEFPROC baddieL(): ; baddie left
   %B(i)=%B(i)-z
   IF %B(i) > $ff THEN :%B(i)=0:
   %B(i+2)=%B(i+2)+1: IF %B(i+2) > 53 THEN %B(i+2)=52: ;animate sprite
-  %B(i+5)=%(B(i+5)&$80)&$81: ; and flip bits %@0001
+  %B(i+5)=%B(i+5)&1: ; turn off all bits and leave bit 0 alone
 ENDPROC
 ;
 DEFPROC baddieR(): ; baddie right
   %B(i)=%B(i)+z
   IF %B(i) > 240 THEN :%B(i)=240
   %B(i+2)=%B(i+2)+1: IF %B(i+2) > 53 THEN %B(i+2)=52: ; animate sprite
-  %B(i+5)=%(B(i+5)&$80)&$89: ; and flip bits %@1001
+  %B(i+5)=%(B(i+5)&1)+@1000: ; and flip bits %@1001
 ENDPROC
 ;
 DEFPROC takeLife()
@@ -295,8 +294,7 @@ DEFPROC initNewGame()
   PROC initBaddies()
   PROC initTombs()
   ; define player and game state
-  ; LET %x=120: LET %y=0: LET %l=4: LET %s=56: ; s= SPRITE
-  LET %x=0: LET %y=0: LET %l=4: LET %s=56: ; s= SPRITE
+  LET %x=120: LET %y=0: LET %l=4: LET %s=56: ; s= SPRITE
   LET %d=1: LET %z=8: ; direction & speed
   LET %P=%$ffff: ; t=baddie speed, %P = last position
   LET %a=%$ffff
