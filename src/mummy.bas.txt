@@ -9,7 +9,7 @@
 ; c = baddie count
 ; %d = player sprite flags (mirror, etc)
 ; %l = player lives
-; %P = player last position, used for tread marks - initilised to $FF
+; %P = player last position, used for tread marks - initilised to $FFFF
 ; %q = bank array of map and objects on map
 ; %r = current level
 ; %s = player sprite
@@ -43,12 +43,14 @@ DEFPROC updateLoop()
   PROC updatePlayer():
   LET %b=1: ; baddie loop
   REPEAT
+    %i=%b*6: ; 6 props (easy to mess this up!)
     PROC updateBaddie(): ; IF %A[i+4)=0 THEN %A[i+5)=
     SPRITE %b,%A[i]+32,%A[i+1]+48,%A[i+2],%A[i+5]&A[i+4]
-    IF %c > 3 AND (b MOD 4=0) THEN PROC updatePlayer()
+    ; note: updatePlayer overwrites %i ... sorry.
+    IF %b MOD 4=0 THEN PROC updatePlayer(): SPRITE MOVE
     LET %b=%b+1
-    SPRITE MOVE
   REPEAT UNTIL %b=(c+1)
+  SPRITE MOVE
   ; PROC fps(): PRINT AT 0,0;%f;"      ": ; f big = bad, small = good
 ENDPROC
 ;
@@ -64,9 +66,10 @@ DEFPROC updatePlayer()
   ; IF %j&$0f=0 THEN LET %P=%$ffff: ENDPROC : ; play isn't moving, early exit
   ;
   ; if I can't move on x plane, check y
+  %i=%0: ; temporay flag say whether they moved
   IF %x MOD 48 THEN : ELSE : IF %j&@0100 THEN PROC down(): ELSE IF %j&@1000 THEN PROC up()
   ;
-  PROC checkTomb(): ; check before we potentially move again
+  IF %P <> $ffff THEN PROC checkTomb(): ; %P = $ffff if they haven't moved
   ;
   IF %y MOD 40 THEN : ELSE : IF %j&@0010 THEN PROC left(): ELSE IF %j&@0001 THEN PROC right():
   ;
@@ -75,13 +78,13 @@ DEFPROC updatePlayer()
   IF %x > $ff THEN : LET %x=0: ELSE IF %x > 240 THEN : LET %x=240
   IF %y > $ff THEN : LET %y=0: ELSE IF %y > 160 THEN : LET %y=160
   ;
-  PROC checkTomb()
+  IF %P <> $ffff THEN PROC checkTomb()
   ;
   PROC treadMark()
-  SPRITE 10,%x+32,%y+48,%s,%d
+  SPRITE 64,%x+32,%y+48,%s,%d
   ;
-  ENDPROC : ; FIXME uncomment to track lives
-  %i=% SPRITE OVER (10,1 TO c)*6
+  ENDPROC : ; FIXME remove to track lives
+  %i=% SPRITE OVER (64,1 TO c)*6
   IF %i=0 THEN ENDPROC
   IF %A[i+4]=0 THEN ENDPROC
   %A[i+4]=0
@@ -91,23 +94,23 @@ ENDPROC
 ;
 DEFPROC checkTomb()
   IF %(x MOD 48) OR (y MOD 40) THEN ENDPROC : ; only run on corners
-  LET %e=%(6*(y/40))+(x/48): ; x/y as aisle index (6 aisles for 5 rows of tombs)
-  IF %e=a THEN ENDPROC : ; we were just there (%a is last position)
+  LET %i=%(6*(y/40))+(x/48): ; x/y as aisle index (6 aisles for 5 rows of tombs)
+  IF %i=a THEN ENDPROC : ; we were just there (%a is last position)
   ;
-  %f=%e-a: ; f is forward +1 or backward -1
+  %f=%i-a: ; f is forward +1 or backward -1
   %k=% ABS SGN {f}=1: ; k tracks the axis, +1 for X, 0 for Y
   ;
-  IF % SGN {f < 0} THEN %g=%a: ELSE %g=%e
+  IF % SGN {f < 0} THEN %g=%a: ELSE %g=%i
   IF %k THEN PROC getXTombs() TO %g,%h: ELSE PROC getYTombs() TO %g,%h
   IF %g > 20 THEN %g=20: ; assign out of bounds to the junk element (index 20)
   IF %h > 20 THEN %h=20
   ; bitwise op below is $current wall & (0xF0 + wall, 1 top, 2 right, 4 bottom, 8 left)
   ; importantly this leaves the first 4 bits untouched
   IF %k THEN %T(g)=%T(g)&@11011111:%T(h)=%T(h)&@01111111: ELSE %T(g)=%T(g)&@10111111:%T(h)=%T(h)&@11101111
-  IF %T(g)&$f8=0 THEN PROC openTomb(%g)
+  IF %T(g)&$f8=0 THEN PROC openTomb(%g): ; (value & 0xf8)==0 = all the walls are covered, and bit 4 (0x08) is _not_ set - then open the tomb
   IF %T(h)&$f8=0 THEN PROC openTomb(%h)
   ;
-  LET %a=%e: ; save the last position
+  LET %a=%i: ; save the last position
 ENDPROC
 ;
 DEFPROC getXTombs(): ; uses scoped %g var from checkTomb
@@ -121,10 +124,8 @@ ENDPROC =%i,%i+1
 ;
 DEFPROC openTomb(%i)
   IF %i=20 THEN ENDPROC
-  IF %T(i)&8=8 THEN ENDPROC : ; tomb is already open
-  ; ON ERROR PRINT AT 0,0;%i;": ";%i MOD 5;": ";%16+((i MOD 5)*48);"/";%32+((i/4)*40);"     ": ENDPROC
-  ; PRINT AT 2,0;%16+((i MOD 5)*48);":";%32+((i/5)*40);"   "
-  ; LAYER ERASE %16+((i MOD 5)*48),%32+((i/5)*40),32,24,28: ; green fill 28
+  IF %T(i)&8=8 THEN ENDPROC : ; FIXME is this always false?
+  ;
   PRINT AT 0,0;"tomb ";%i;" contained ";%T(i);" "
   PRINT AT 1,0;"i:";%i;",T(i):";%T(i)
   %T(i)=%T(i)+8: ; prevent the tomb from being reopened
@@ -145,23 +146,6 @@ ENDPROC
 ; handle baddies
 ;
 DEFPROC updateBaddie()
-  LET %i=%b*6: ; 6 props (easy to mess this up!)
-  PROC moveBaddie()
-  PROC baddieBumping() TO %j
-  IF %j THEN PROC moveBaddie()
-ENDPROC
-;
-DEFPROC baddieBumping()
-  IF %b=c THEN ENDPROC =0: ; don't test the last sprite
-  %j=% SPRITE OVER (b,b+1 TO c,0,0)
-  IF %j=0 THEN ENDPROC =0: ; 0 = no collision
-  ; PRINT AT %b,0;%b;":";%j;" "
-  IF %A[i+3] > 3 THEN %k=%@1100: ELSE %k=%@0011: ; £> 3£ = going left/right
-  %A[i+3]=%A[i+3]^k: ; reverse the baddie direction
-  %A[(j*6)+3]=%A[(j*6)+3]^k: ; and do the same to the colliding baddie
-ENDPROC =1
-;
-DEFPROC moveBaddie()
   LET %j=%A[i+3]
   IF %j=1 THEN PROC baddieD(): IF %A[i+1] MOD 40 THEN ENDPROC : ;down
   IF %j=2 THEN PROC baddieU(): IF %A[i+1] MOD 40 THEN ENDPROC : ;up
