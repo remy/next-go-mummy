@@ -19,3 +19,5 @@ General way points:
 - [tomb-check.js](https://github.com/remy/next-oh-mummy/blob/master/previous-attempts/tomb-check.js) - JavaScript (my native tongue) code to solve tomb surrounding logic
 
 I'm developing on my Mac using my [NextBASIC VS Code extension](https://marketplace.visualstudio.com/items?itemName=remysharp.nextbasic), previewing in [Cspect](http://cspect.org/) then running hardware tests on my ZX Spectrum Next.
+
+I've also started a devlog here: https://remysharp.com/devlog/#oh-mummy

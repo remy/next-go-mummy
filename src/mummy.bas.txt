@@ -1,12 +1,11 @@
 #program mummy
-#autoline
-#autostart
+#autoline 10
 ; Oh Mummy (clone), Remy Sharp 2020
 ; ******** VARIABLE INDEX *********
 ;
 ; %a = player last corner, used for tomb calc - initilised to $FF
 ; b = baddie index
-; B() = baddie array
+; A[] = baddie array (allows for > 64 elements)
 ; c = baddie count
 ; %d = player sprite flags (mirror, etc)
 ; %l = player lives
@@ -25,7 +24,7 @@
 ; **********************************
 ;
 RUN AT 3: REM 3.5Mhz (0 = 3.5, 1 = 7 (aim), 2 = 14 (likely))
-RANDOMIZE 1
+RANDOMIZE %1978
 ; clean the screen on stop
 ;ON ERROR TO e,l,s: ON ERROR : LAYER CLEAR : SPRITE CLEAR : BORDER 7: PRINT 0,0;"Error:";e;", ";l;":";s: STOP
 ;
@@ -44,14 +43,13 @@ DEFPROC updateLoop()
   PROC updatePlayer():
   LET %b=1: ; baddie loop
   REPEAT
-    PROC updateBaddie(): ; IF %B(i+4)=0 THEN %B(i+5)=0
-    ;   PRINT AT %b,0;%i;";";%B(i+5)&B(i+4)
-    SPRITE %b,%B(i)+32,%B(i+1)+48,%B(i+2),%B(i+5)&B(i+4)
+    PROC updateBaddie(): ; IF %A[i+4)=0 THEN %A[i+5)=
+    SPRITE %b,%A[i]+32,%A[i+1]+48,%A[i+2],%A[i+5]&A[i+4]
+    IF %c > 3 AND (b MOD 4=0) THEN PROC updatePlayer()
     LET %b=%b+1
+    SPRITE MOVE
   REPEAT UNTIL %b=(c+1)
   ; PROC fps(): PRINT AT 0,0;%f;"      ": ; f big = bad, small = good
-  PROC treadMark()
-  SPRITE MOVE
 ENDPROC
 ;
 DEFPROC updatePlayer()
@@ -79,15 +77,15 @@ DEFPROC updatePlayer()
   ;
   PROC checkTomb()
   ;
+  PROC treadMark()
   SPRITE 10,%x+32,%y+48,%s,%d
   ;
-  ; FIXME need to know how many baddie there are
-  %i=% SPRITE OVER (10,1 TO c)
+  ENDPROC : ; FIXME uncomment to track lives
+  %i=% SPRITE OVER (10,1 TO c)*6
   IF %i=0 THEN ENDPROC
-  %i=%i*6
-  IF %B(i+4)=0 THEN ENDPROC
-  %B(i+4)=0
-  %B(i+5)=0
+  IF %A[i+4]=0 THEN ENDPROC
+  %A[i+4]=0
+  %A[i+5]=0
   PROC takeLife()
 ENDPROC
 ;
@@ -144,61 +142,62 @@ DEFPROC treadMark(): ;down=0,up=2,left=4,right=6
   %P=%$ffff: ; now they're not moving
 ENDPROC
 ;
-DEFPROC baddieBumping()
-  IF %b=c THEN ENDPROC
-  %j=% SPRITE OVER (b,b+1 TO c,7,7)
-  IF %j=0 THEN ENDPROC
-  ; PRINT AT %b,0;%b;":";%j;" "
-  IF %B(i+3) > 3 THEN %k=%@1100: ELSE %k=%@0011
-  %B(i+3)=%B(i+3)^k
-  %B((j*6)+3)=%B((j*6)+3)^k
-
-ENDPROC
-;
 ; handle baddies
 ;
 DEFPROC updateBaddie()
   LET %i=%b*6: ; 6 props (easy to mess this up!)
-  ; else (baddie is alive) and baddie is over player sprite (spr 10): kill baddie, turn off sprite (5), take life and bail
-  ; FOR %k=1 TO %c-1
-  ; PROC baddieBumping()
-  ;
-  LET %j=%B(i+3)
-  IF %j=1 THEN PROC baddieD(): IF %B(i+1) MOD 40 THEN ENDPROC : ;down
-  IF %j=2 THEN PROC baddieU(): IF %B(i+1) MOD 40 THEN ENDPROC : ;up
-  IF %j=4 THEN PROC baddieL(): IF %B(i) MOD 48 THEN ENDPROC : ;left
-  IF %j=8 THEN PROC baddieR(): IF %B(i) MOD 48 THEN ENDPROC : ;right
+  PROC moveBaddie()
+  PROC baddieBumping() TO %j
+  IF %j THEN PROC moveBaddie()
+ENDPROC
+;
+DEFPROC baddieBumping()
+  IF %b=c THEN ENDPROC =0: ; don't test the last sprite
+  %j=% SPRITE OVER (b,b+1 TO c,0,0)
+  IF %j=0 THEN ENDPROC =0: ; 0 = no collision
+  ; PRINT AT %b,0;%b;":";%j;" "
+  IF %A[i+3] > 3 THEN %k=%@1100: ELSE %k=%@0011: ; £> 3£ = going left/right
+  %A[i+3]=%A[i+3]^k: ; reverse the baddie direction
+  %A[(j*6)+3]=%A[(j*6)+3]^k: ; and do the same to the colliding baddie
+ENDPROC =1
+;
+DEFPROC moveBaddie()
+  LET %j=%A[i+3]
+  IF %j=1 THEN PROC baddieD(): IF %A[i+1] MOD 40 THEN ENDPROC : ;down
+  IF %j=2 THEN PROC baddieU(): IF %A[i+1] MOD 40 THEN ENDPROC : ;up
+  IF %j=4 THEN PROC baddieL(): IF %A[i] MOD 48 THEN ENDPROC : ;left
+  IF %j=8 THEN PROC baddieR(): IF %A[i] MOD 48 THEN ENDPROC : ;right
   ;
   ; rotate 1:3 times
-  IF % RND 3=0 THEN LET %B(i+3)=%1 << RND 4: ;qaop/direction
+  IF % RND 3=0 THEN LET %A[i+3]=%1 << RND 4: ;qaop/direction
 ENDPROC
 ;
 DEFPROC baddieD(): ; baddie down
-  %B(i+1)=%B(i+1)+z
-  IF %B(i+1) > 160 THEN :%B(i+1)=160: ;
-  %B(i+2)=11
-  %B(i+5)=%B(i+5)^@1000: ;set sprite to up, and flip bits
+  %A[i+1]=%A[i+1]+z
+  IF %A[i+1] > 160 THEN %A[i+1]=160: ; edge
+  %A[i+2]=11: ; sprite
+  %A[i+5]=%A[i+5]^@1000: ;set sprite to up, and flip bits
 ENDPROC
 ;
 DEFPROC baddieU(): ; baddie up
-  %B(i+1)=%B(i+1)-z
-  IF %B(i+1) > $ff THEN :%B(i+1)=0
-  %B(i+2)=10
-  %B(i+5)=%B(i+5)^@1000: ;set sprite to up, and flip bits
+  %A[i+1]=%A[i+1]-z
+  IF %A[i+1] > $ff THEN %A[i+1]=0
+  %A[i+2]=10
+  %A[i+5]=%A[i+5]^@1000: ;set sprite to up, and flip bits
 ENDPROC
 ;
 DEFPROC baddieL(): ; baddie left
-  %B(i)=%B(i)-z
-  IF %B(i) > $ff THEN :%B(i)=0:
-  %B(i+2)=%B(i+2)+1: IF %B(i+2) > 9 THEN %B(i+2)=8: ;animate sprite
-  %B(i+5)=%B(i+5)&@0001: ; turn off all bits and leave bit 0 alone
+  %A[i]=%A[i]-z
+  IF %A[i] > $ff THEN %A[i]=0:
+  %A[i+2]=%A[i+2]+1: IF %A[i+2] > 9 THEN %A[i+2]=8: ;animate sprite
+  %A[i+5]=%A[i+5]&@0001: ; turn off all bits and leave bit 0 alone
 ENDPROC
 ;
 DEFPROC baddieR(): ; baddie right
-  %B(i)=%B(i)+z
-  IF %B(i) > 240 THEN :%B(i)=240
-  %B(i+2)=%B(i+2)+1: IF %B(i+2) > 9 THEN %B(i+2)=8: ; animate sprite
-  %B(i+5)=%(B(i+5)&1)+@1000: ; and flip bits %@1001
+  %A[i]=%A[i]+z
+  IF %A[i] > 240 THEN %A[i]=240
+  %A[i+2]=%A[i+2]+1: IF %A[i+2] > 9 THEN %A[i+2]=8: ; animate sprite
+  %A[i+5]=%(A[i+5]&1)+@1000: ; and flip bits %@1001
 ENDPROC
 ;
 DEFPROC takeLife()
@@ -269,18 +268,18 @@ DEFPROC gameOver()
   REPEAT : REPEAT UNTIL INKEY$ ="s":
 ENDPROC
 ;
-; initBaddies: %B=Array([x,y,spr,angle(0: x, 1: y),direction(0: backward, 1: forward),alive])
+; initBaddies: %A=Array[[x,y,spr,angle(0: x, 1: y),direction(0: backward, 1: forward),alive]] (allowing for more than 10 baddies)
 ; note: i*j = j properties per baddie
 DEFPROC initBaddies()
-  LET %c=9: ; global badie count
+  LET %c=10: ; global badie count
   LET %j=6: ;n props
-  FOR %i=1 TO %c: ;total baddies
-    LET %B(i*j)=% RND 192: ; 0 = x
-    LET %B((i*j)+1)=% RND 4*40: ; 1 = y
-    LET %B((i*j)+2)=8: ; 2 = SPRITE
-    LET %B((i*j)+3)=%1 << ( RND 2+2): ;3 = qaop/direction
-    LET %B((i*j)+4)=%$ff: ; 4 = alive
-    LET %B((i*j)+5)=1: ; 5 = sprite flags
+  FOR %i=1 TO %c: ;always have 9 baddie to update, to keep the rate constant
+    LET %A[i*j]=% RND 192: ; 0 = x
+    LET %A[(i*j)+1]=% RND 4*40: ; 1 = y
+    LET %A[(i*j)+2]=8: ; 2 = SPRITE
+    LET %A[(i*j)+3]=%1 << ( RND 2+2): ;3 = qaop/direction
+    LET %A[(i*j)+4]=%$ff: ; 4 = alive
+    LET %A[(i*j)+5]=1: ; 5 = sprite flags
   NEXT %i
 ENDPROC
 ;

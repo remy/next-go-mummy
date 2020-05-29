@@ -1,0 +1,8 @@
+#autoline 10
+PROC _test()
+DEF FN s(x)=x*x: REM square of x
+STOP
+
+DEFPROC test(a,b,c,d)
+  PRINT "hello world"
+ENDPROC
