@@ -1,6 +1,9 @@
 #program mummy
 #autoline 10
 ; Oh Mummy (clone), Remy Sharp 2020
+;
+RUN AT 3: REM 3.5Mhz (0 = 3.5, 1 = 7 (aim), 2 = 14 (likely))
+;
 ; ******** VARIABLE INDEX *********
 ;
 ; %a = player last corner, used for tomb calc - initilised to $FF
@@ -24,10 +27,9 @@
 ; i, j, k - then - f, g, h, m, n, o, q
 ; **********************************
 ;
-RUN AT 3: REM 3.5Mhz (0 = 3.5, 1 = 7 (aim), 2 = 14 (likely))
 RANDOMIZE %2
 ; clean the screen on stop
-;ON ERROR TO e,l,s: PROC cleanUp(e,l,s)
+;ON ERROR : ERROR TO er,lin,st: PROC cleanUp(er,lin,st)
 ;
 PROC initOnce()
 ; core loop
@@ -47,7 +49,7 @@ DEFPROC updateLoop()
     %i=%b*6: ; 6 props (easy to mess this up!)
     PROC updateBaddie(): SPRITE %b,%A[i]+32,%A[i+1]+48,%A[i+2],%A[i+5]&A[i+4]
     ; note: updatePlayer overwrites %i ... sorry.
-    IF %b MOD 4=0 THEN PROC updatePlayer(): SPRITE MOVE :
+    ;   IF %b MOD 4=0 THEN PROC updatePlayer(): SPRITE MOVE :
     LET %b=%b+1
   REPEAT UNTIL %b=(c+1)
   SPRITE MOVE
@@ -157,102 +159,73 @@ DEFPROC updateBaddie()
   IF % RND 3=0 THEN LET %A[i+3]=%1 << RND 4: ;qaop/direction
 ENDPROC
 ;
-DEFPROC getIndexForXY(%x,%y)
-ENDPROC =%(32*(y/8))+(x/8)
-;
-DEFPROC getBaddieBankIndex(%i)
-  LOCAL %j
-  PROC getIndexForXY(%A[i*6],%A[(i*6)+1]) TO %j
-ENDPROC =%j
-;
-DEFPROC clearBaddie(%a)
-  PROC setBaddieInBank(%a,%0)
-ENDPROC
-;
-DEFPROC setBaddie(%a)
-  PROC setBaddieInBank(%a,%a)
-ENDPROC
-;
-DEFPROC setBaddieInBank(%a,%b)
-  LOCAL %j
-  PROC getBaddieBankIndex(%a) TO %j
-  BANK %e POKE %j,%b
-ENDPROC
-;
-DEFPROC peekForXY(%x,%y)
-  LOCAL %j
-  PROC getIndexForXY(%x,%y) TO %j
-  %j=% BANK e PEEK j
-ENDPROC =%j
-;
-DEFPROC getBaddieFromBank(%i)
-  LOCAL %j
-  PROC getBaddieBankIndex(%i) TO %j
-  %j=% BANK e PEEK j
-ENDPROC =%j
-;
 DEFPROC checkBaddie(%a,%x,%y)
-  IF %y > $ff OR (x > $ff) THEN ENDPROC =%0
-  IF %x=0 OR (y=240) THEN ENDPROC =%0
-  PROC peekForXY(%x,%y) TO %f
+  LOCAL %i: LOCAL %j
+  ON ERROR ENDPROC =%0: ; don't bother with out of bound checks, just exit
+  %f=% BANK e PEEK ((32*(y/8))+(x/8))
 
   IF %f=0 OR (f=b) THEN ENDPROC =%0
-  ; IF %b=1 THEN PRINT AT 3,0;"e:";%e;",b:";%b;",f:";%f;",offset:";%(32*(y/8))+(x/8);"<<"
-  ; STOP
 
+  %i=%a+3
+  %j=%(f*6)+3
 
-  IF %A[a+3] > 3 THEN %k=%@1100: ELSE %k=%@0011: ; > 3 = going left/right
-  %A[a+3]=%A[a+3]^k: ; reverse the baddie direction
-  IF %A[(j*6)+3] > 3 THEN %k=%@1100: ELSE %k=%@0011: ; > 3 = going left/right
-  %A[(f*6)+3]=%A[(f*6)+3]^k: ; and do the same to the colliding baddie
+  IF %A[i] > 3 THEN %k=%@1100: ELSE %k=%@0011: ; > 3 = going left/right
+  %A[i]=%A[i]^k: ; reverse the baddie direction
+  ;
+  IF %A[j] > 3 THEN %k=%@1100: ELSE %k=%@0011: ; > 3 = going left/right
+  %A[j]=%A[j]^k: ; and do the same to the colliding baddie
 ENDPROC =%1
 ;
 DEFPROC baddieD(): ; baddie down
-  PROC checkBaddie(%i,%A[i]-z,%A[i+1]) TO %f
-  PROC clearBaddie(%b)
+  PROC checkBaddie(%i,%A[i],%A[i+1]+z) TO %f
 
-  IF %f THEN   %A[i+1]=%A[i+1]-z: ELSE  %A[i+1]=%A[i+1]+z
+  IF %f THEN ENDPROC
+  BANK %e POKE %(32*(A[i+1]/8))+(A[i]/8),%0
+  %A[i+1]=%A[i+1]+z
+
   IF %A[i+1] > 160 THEN %A[i+1]=160: ; edge
   %A[i+2]=11: ; sprite
   %A[i+5]=%A[i+5]^@1000: ;set sprite to up, and flip bits
-  PROC setBaddie(%b)
+  BANK %e POKE %(32*(A[i+1]/8))+(A[i]/8),%b
 ENDPROC
 ;
 DEFPROC baddieU(): ; baddie up
-  PROC checkBaddie(%i,%A[i]-z,%A[i+1]) TO %f
-  PROC clearBaddie(%b)
+  PROC checkBaddie(%i,%A[i],%A[i+1]-z) TO %f
 
-  IF %f THEN %A[i+1]=%A[i+1]+z: ELSE %A[i+1]=%A[i+1]-z
+  IF %f THEN ENDPROC
+  BANK %e POKE %(32*(A[i+1]/8))+(A[i]/8),%0
+  %A[i+1]=%A[i+1]-z
+
   IF %A[i+1] > $ff THEN %A[i+1]=0
   %A[i+2]=10
   %A[i+5]=%A[i+5]^@1000: ;set sprite to up, and flip bits
-  PROC setBaddie(%b)
+  BANK %e POKE %(32*(A[i+1]/8))+(A[i]/8),%b
 ENDPROC
 ;
 DEFPROC baddieL(): ; baddie left
   PROC checkBaddie(%i,%A[i]-z,%A[i+1]) TO %f
-  PROC clearBaddie(%b)
   ;
-  IF %f THEN %A[i]=%A[i]+z: ELSE %A[i]=%A[i]-z
+  IF %f THEN ENDPROC
+  BANK %e POKE %(32*(A[i+1]/8))+(A[i]/8),%0
+  %A[i]=%A[i]-z
   IF %A[i] > $ff THEN %A[i]=0
   ;
   %A[i+2]=%A[i+2]+1: IF %A[i+2] > 9 THEN %A[i+2]=8: ;animate sprite
   %A[i+5]=%A[i+5]&@0001: ; turn off all bits and leave bit 0 alone
   BANK %e POKE %(32*(A[i+1]/8))+(A[i]/8),%b
-  PROC setBaddie(%b)
 ENDPROC
 ;
 DEFPROC baddieR(): ; baddie right
   PROC checkBaddie(%i,%A[i]+z,%A[i+1]) TO %f
-  PROC clearBaddie(%b)
   ;
-  IF %f THEN %A[i]=%A[i]-z: ELSE %A[i]=%A[i]+z
+  IF %f THEN ENDPROC
+  BANK %e POKE %(32*(A[i+1]/8))+(A[i]/8),%0
+  %A[i]=%A[i]+z
   IF %A[i] > 240 THEN %A[i]=240
-  IF %A[i] > $ff THEN %A[i]=0
   ;
   %A[i+2]=%A[i+2]+1: IF %A[i+2] > 9 THEN %A[i+2]=8: ; animate sprite
   %A[i+5]=%(A[i+5]&1)+@1000: ; and flip bits %@1001
-  PROC setBaddie(%b)
+  BANK %e POKE %(32*(A[i+1]/8))+(A[i]/8),%b
 ENDPROC
 ;
 DEFPROC takeLife()
@@ -326,7 +299,7 @@ ENDPROC
 ; initBaddies: %A=Array[[x,y,spr,angle(0: x, 1: y),direction(0: backward, 1: forward),alive]] (allowing for more than 10 baddies)
 ; note: i*j = j properties per baddie
 DEFPROC initBaddies()
-  LET %c=5: ; global badie count
+  LET %c=6: ; global badie count
   LET %j=6: ;n props
   FOR %i=1 TO %c: ;always have 9 baddie to update, to keep the rate constant
     LET %A[i*j]=% RND 192: ; 0 = x
@@ -335,7 +308,7 @@ DEFPROC initBaddies()
     LET %A[(i*j)+3]=%1 << ( RND 2+2): ;3 = qaop/direction
     LET %A[(i*j)+4]=%$ff: ; 4 = alive
     LET %A[(i*j)+5]=1: ; 5 = sprite flags
-    PROC setBaddie(%i)
+    BANK %e POKE %(32*(A[(i*j)+1]/8))+(A[i*j]/8),%i
   NEXT %i
 ENDPROC
 ;
@@ -383,7 +356,6 @@ ENDPROC
 ;
 DEFPROC initNewGame()
   ; define player and game state
-  ; BANK %q ERASE 0,768,0
   LET %x=120: LET %y=0: LET %l=4: LET %s=32: ; s= SPRITE
   LET %d=1: LET %z=8: ; direction & speed
   LET %P=%$ffff: ; t=baddie speed, %P = last position
@@ -404,6 +376,7 @@ ENDPROC
 ;
 DEFPROC cleanUp(e,l,s)
   ON ERROR
+  BANK CLEAR %e
   LAYER CLEAR
   SPRITE CLEAR
   CLS
