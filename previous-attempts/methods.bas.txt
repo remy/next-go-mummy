@@ -1,0 +1,23 @@
+#autoline 10
+; 2020-05-30
+DEFPROC getIndexForXY(%x,%y)
+ENDPROC =%(32*(y/8))+(x/8)
+;
+DEFPROC getBaddieBankIndex(%i)
+  LOCAL %j
+  PROC getIndexForXY(%A[i*6],%A[(i*6)+1]) TO %j
+ENDPROC =%j
+;
+DEFPROC clearBaddie(%a)
+  BANK %e POKE %(32*(A[(b)+1]/8))+(A[b]/8),%0
+ENDPROC
+;
+DEFPROC setBaddie(%a)
+  BANK %e POKE %(32*(A[(b)+1]/8))+(A[b]/8),%b
+ENDPROC
+;
+DEFPROC setBaddieInBank(%a,%b)
+  LOCAL %j
+  PROC getBaddieBankIndex(%a) TO %j
+  BANK %e POKE %j,%b
+ENDPROC
