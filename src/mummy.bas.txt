@@ -5,10 +5,10 @@
 RUN AT 3: REM 3.5Mhz (0 = 3.5, 1 = 7 (aim), 2 = 14 (likely))
 ;
 ; ************ TODO ***************
+; - [ ] Open tomb effect (spr@8-11 + 12 transparency)
 ; - [ ] Welcome screen / start game
 ; - [ ] Level up
 ; - [ ] AI for baddie
-; - [ ] Open tomb effect (spr@8-11 + 12 transparency)
 ; - [ ] Graphics for prize tombs
 ; - [ ] Score
 ;
@@ -55,9 +55,9 @@ DEFPROC updateLoop()
   LET %b=1: ; baddie loop
   REPEAT
     %i=%b*6: ; 6 props (easy to mess this up!)
-    PROC updateBaddie(): SPRITE %b,%A[i]+32,%A[i+1]+48,%A[i+2],%A[i+5]&A[i+4]
+    ;PROC updateBaddie(): SPRITE %b,%A[i]+32,%A[i+1]+48,%A[i+2],%A[i+5]&A[i+4]
     ; note: updatePlayer overwrites %i ... sorry.
-    IF %b MOD (c/2)=0 THEN SPRITE MOVE :
+    IF %b MOD ((c+1)/2)=0 THEN SPRITE MOVE :
     LET %b=%b+1
   REPEAT UNTIL %b=(c+1)
   SPRITE MOVE
@@ -104,6 +104,7 @@ DEFPROC checkTomb()
   IF %(x MOD 48) OR (y MOD 40) THEN ENDPROC : ; only run on corners
   LET %i=%(6*(y/40))+(x/48): ; x/y as aisle index (6 aisles for 5 rows of tombs)
   IF %i=a THEN ENDPROC : ; we were just there (%a is last position)
+  IF %a=$ffff THEN %a=%i: ENDPROC
   ;
   %f=%i-a: ; f is forward +1 or backward -1
   %k=% ABS SGN {f}=1: ; k tracks the axis, +1 for X, 0 for Y
@@ -118,7 +119,7 @@ DEFPROC checkTomb()
   IF %T(g)&$f8=0 THEN PROC openTomb(%g): ; (value & 0xf8)==0 = all the walls are covered, and bit 4 (0x08) is _not_ set - then open the tomb
   IF %T(h)&$f8=0 THEN PROC openTomb(%h)
   ;
-  LET %a=%i: ; save the last position
+  LET %a=%f+a: ; save the last position (because we lost %i)
 ENDPROC
 ;
 DEFPROC getXTombs(): ; uses scoped %g var from checkTomb
@@ -134,8 +135,10 @@ DEFPROC openTomb(%i)
   IF %i=20 THEN ENDPROC
   IF %T(i)&8=8 THEN ENDPROC : ; FIXME is this always false?
   ;
-  PRINT AT 0,0;"tomb ";%i;" contained ";%T(i);" "
-  PRINT AT 1,0;"i:";%i;",T(i):";%T(i)
+  ; PRINT AT 0,0;"tomb ";%i;" contained ";%T(i);" "
+  ; PRINT AT 1,0;%2+((i MOD 5)*6);"/";%3+((i/5)*6);" "
+  ; PRINT AT 1,0;"i:";%i;",T(i):";%T(i)
+  TILE 4,3 AT 0,3 TO %2+((i MOD 5)*6),%4+((i/5)*5)
   %T(i)=%T(i)+8: ; prevent the tomb from being reopened
 ENDPROC
 ;
@@ -236,7 +239,7 @@ ENDPROC
 DEFPROC takeLife()
   LET %l=%l-1
   FOR %i=0 TO 2
-    SPRITE %11+i,%200+(i*16),%32,60,%i < l: ; draw lives
+    ;   SPRITE %11+i,%200+(i*16),%32,60,%i < l: ; draw lives
   NEXT %i
 ENDPROC
 ;
@@ -284,6 +287,20 @@ DEFPROC initSprites()
   ; now we're going to push tiles into memory for feet
   FOR %i=%0 TO %7: READ %j: BANK %14 POKE %i,%j: NEXT %i
   FOR %i=%0 TO %7: READ %j: BANK %14 POKE %i+32,%j: NEXT %i
+  ;
+  ; tombopen
+  ;
+  DATA 9,9,9,9
+  DATA 9,9,9,9
+  DATA 9,9,9,9
+  ;
+  FOR %j=%3 TO %5
+    FOR %i=%0 TO %3
+      READ %k
+      BANK %14 POKE %i+(32*j),%k
+    NEXT %i
+  NEXT %j
+
   RESTORE 10: ; reset the position of read for new games
   PAPER 255: INK 0: BORDER 6: ;background black (6 = yellow), text white
 ENDPROC
@@ -318,7 +335,7 @@ DEFPROC initBaddies()
 ENDPROC
 ;
 DEFPROC initTombs()
-  FOR %i=0 TO 21: ; note that index 20 is used for dumping invalid/out of bounds
+  FOR %i=0 TO 20: ; note that index 20 is used for dumping invalid/out of bounds
     LET %T(i)=%$f0: ; this is 11110000 - each edge is the high nibble and set as closed/waiting to be masked later
   NEXT %i
   PROC pickRandom()
@@ -353,7 +370,7 @@ DEFPROC initOnce()
   SPRITE CLEAR
   ; LAYER OVER %@100
   LAYER 2,1
-  LOAD "mummy.spr" BANK 13: ; load spritesheet
+  LOAD "mummy.spr" BANK 13: ; load spritesheet for tiles
   TILE BANK 13: ; point tiles to spritesheet
   TILE DIM 14,0,32,8: ; using tile bank 14, offset 0, tile 32 wide, tile size 8
   %e=%15: ; game map bank
@@ -367,7 +384,7 @@ DEFPROC initNewGame()
   LET %P=%$ffff: ; t=baddie speed, %P = last position
   LET %a=%$ffff
   LET %r=1: ; level
-  LET %c=3: ; global badie count
+  LET %c=1: ; global badie count
   ;
   PROC initSprites()
   PROC initBaddies()
