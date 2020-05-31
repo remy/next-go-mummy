@@ -4,6 +4,14 @@
 ;
 RUN AT 3: REM 3.5Mhz (0 = 3.5, 1 = 7 (aim), 2 = 14 (likely))
 ;
+; ************ TODO ***************
+; - [ ] Welcome screen / start game
+; - [ ] Level up
+; - [ ] AI for baddie
+; - [ ] Open tomb effect (spr@8-11 + 12 transparency)
+; - [ ] Graphics for prize tombs
+; - [ ] Score
+;
 ; ******** VARIABLE INDEX *********
 ;
 ; %a = player last corner, used for tomb calc - initilised to $FF
@@ -49,7 +57,7 @@ DEFPROC updateLoop()
     %i=%b*6: ; 6 props (easy to mess this up!)
     PROC updateBaddie(): SPRITE %b,%A[i]+32,%A[i+1]+48,%A[i+2],%A[i+5]&A[i+4]
     ; note: updatePlayer overwrites %i ... sorry.
-    ;   IF %b MOD 4=0 THEN PROC updatePlayer(): SPRITE MOVE :
+    IF %b MOD (c/2)=0 THEN SPRITE MOVE :
     LET %b=%b+1
   REPEAT UNTIL %b=(c+1)
   SPRITE MOVE
@@ -70,10 +78,10 @@ DEFPROC updatePlayer()
   ; IF %j&$0f=0 THEN LET %P=%$ffff: ENDPROC : ; play isn't moving, early exit
   ;
   ; if I can't move on x plane, check y
-  IF %x MOD 48 THEN : ELSE : IF %j&@0100 THEN PROC down(): ELSE IF %j&@1000 THEN PROC up()
+  IF %x MOD 48 THEN : ELSE : IF %j&@0100 THEN PROC down(%8): ELSE IF %j&@1000 THEN PROC up(%8)
   IF %P <> $ffff THEN PROC checkTomb(): ; %P = $ffff if they haven't moved
   ;
-  IF %y MOD 40 THEN : ELSE : IF %j&@0010 THEN PROC left(): ELSE IF %j&@0001 THEN PROC right():
+  IF %y MOD 40 THEN : ELSE : IF %j&@0010 THEN PROC left(%8): ELSE IF %j&@0001 THEN PROC right(%8)
   ;
   ; note that %x > $ff means the integer has gone from 0, to -1, but it's unsigned
   ; so it'll be up in the 65K range, so this check against 255 is good enough
@@ -84,7 +92,6 @@ DEFPROC updatePlayer()
   ;
   SPRITE 64,%x+32,%y+48,%s,%d
   ;
-  ENDPROC : ; FIXME remove to track lives
   %i=% SPRITE OVER (64,1 TO c)*6
   IF %i=0 THEN ENDPROC
   IF %A[i+4]=0 THEN ENDPROC
@@ -153,9 +160,7 @@ DEFPROC updateBaddie()
   IF %j=4 THEN PROC baddieL(): IF %A[i] MOD 48 THEN ENDPROC : ;left
   IF %j=8 THEN PROC baddieR(): IF %A[i] MOD 48 THEN ENDPROC : ;right
   ;
-  ; rotate 1:3 times
-  ; IF %A[i]=240 THEN %A[i+3]=4
-  ; IF %A[i]=0 THEN %A[i+3]=8
+  ; rotate 1:3 times - TODO eventually make this more "AI"
   IF % RND 3=0 THEN LET %A[i+3]=%1 << RND 4: ;qaop/direction
 ENDPROC
 ;
@@ -184,7 +189,7 @@ DEFPROC baddieD(): ; baddie down
   %A[i+1]=%A[i+1]+z
 
   IF %A[i+1] > 160 THEN %A[i+1]=160: ; edge
-  %A[i+2]=11: ; sprite
+  %A[i+2]=47: ; sprite
   %A[i+5]=%A[i+5]^@1000: ;set sprite to up, and flip bits
   BANK %e POKE %(32*(A[i+1]/8))+(A[i]/8),%b
 ENDPROC
@@ -197,7 +202,7 @@ DEFPROC baddieU(): ; baddie up
   %A[i+1]=%A[i+1]-z
 
   IF %A[i+1] > $ff THEN %A[i+1]=0
-  %A[i+2]=10
+  %A[i+2]=46
   %A[i+5]=%A[i+5]^@1000: ;set sprite to up, and flip bits
   BANK %e POKE %(32*(A[i+1]/8))+(A[i]/8),%b
 ENDPROC
@@ -210,7 +215,7 @@ DEFPROC baddieL(): ; baddie left
   %A[i]=%A[i]-z
   IF %A[i] > $ff THEN %A[i]=0
   ;
-  %A[i+2]=%A[i+2]+1: IF %A[i+2] > 9 THEN %A[i+2]=8: ;animate sprite
+  %A[i+2]=%A[i+2]+1: IF %A[i+2] > 45 THEN %A[i+2]=44: ;animate sprite
   %A[i+5]=%A[i+5]&@0001: ; turn off all bits and leave bit 0 alone
   BANK %e POKE %(32*(A[i+1]/8))+(A[i]/8),%b
 ENDPROC
@@ -223,7 +228,7 @@ DEFPROC baddieR(): ; baddie right
   %A[i]=%A[i]+z
   IF %A[i] > 240 THEN %A[i]=240
   ;
-  %A[i+2]=%A[i+2]+1: IF %A[i+2] > 9 THEN %A[i+2]=8: ; animate sprite
+  %A[i+2]=%A[i+2]+1: IF %A[i+2] > 45 THEN %A[i+2]=44: ;animate sprite
   %A[i+5]=%(A[i+5]&1)+@1000: ; and flip bits %@1001
   BANK %e POKE %(32*(A[i+1]/8))+(A[i]/8),%b
 ENDPROC
@@ -235,32 +240,32 @@ DEFPROC takeLife()
   NEXT %i
 ENDPROC
 ;
-DEFPROC up(): ; move up
+DEFPROC up(%z): ; move up
   %P=2
   %y=%y-z
   %d=%d^@1000
-  %s=34
+  %s=50
 ENDPROC
 ;
-DEFPROC down(): ; move down
+DEFPROC down(%z): ; move down
   %P=0
   %y=%y+z
   %d=%d^@1000
-  %s=35
+  %s=51
 ENDPROC
 ;
-DEFPROC left(): ; move left
+DEFPROC left(%z): ; move left
   %P=4
   %x=%x-z
   %d=%@1001
-  %s=%s+1: IF %s > 33 THEN %s=32
+  %s=%s+1: IF %s > 49 THEN %s=48
 ENDPROC
 ;
-DEFPROC right(): ; move right
+DEFPROC right(%z): ; move right
   %P=6
   %x=%x+z
   %d=%@0001
-  %s=%s+1: IF %s > 33 THEN %s=32
+  %s=%s+1: IF %s > 49 THEN %s=48
 ENDPROC
 ;
 ; init functions
@@ -273,8 +278,9 @@ DEFPROC initSprites()
   SPRITE CLEAR : SPRITE PRINT 1
   ;
   ; footfall marks
-  DATA 63,1,63,3,63,5,63,7
-  DATA 0,63,2,63,4,63,6,63
+  %j=0: ; =16 for old school
+  DATA 63,145,63,147,63,149,63,151
+  DATA 144,63,146,63,148,63,150,63
   ; now we're going to push tiles into memory for feet
   FOR %i=%0 TO %7: READ %j: BANK %14 POKE %i,%j: NEXT %i
   FOR %i=%0 TO %7: READ %j: BANK %14 POKE %i+32,%j: NEXT %i
@@ -299,12 +305,11 @@ ENDPROC
 ; initBaddies: %A=Array[[x,y,spr,angle(0: x, 1: y),direction(0: backward, 1: forward),alive]] (allowing for more than 10 baddies)
 ; note: i*j = j properties per baddie
 DEFPROC initBaddies()
-  LET %c=6: ; global badie count
   LET %j=6: ;n props
   FOR %i=1 TO %c: ;always have 9 baddie to update, to keep the rate constant
     LET %A[i*j]=% RND 192: ; 0 = x
     LET %A[(i*j)+1]=% RND 4*40: ; 1 = y
-    LET %A[(i*j)+2]=8: ; 2 = SPRITE
+    LET %A[(i*j)+2]=%44: ; 2 = SPRITE
     LET %A[(i*j)+3]=%1 << ( RND 2+2): ;3 = qaop/direction
     LET %A[(i*j)+4]=%$ff: ; 4 = alive
     LET %A[(i*j)+5]=1: ; 5 = sprite flags
@@ -352,15 +357,18 @@ DEFPROC initOnce()
   TILE BANK 13: ; point tiles to spritesheet
   TILE DIM 14,0,32,8: ; using tile bank 14, offset 0, tile 32 wide, tile size 8
   %e=%15: ; game map bank
+  DIFFICULTY=4
 ENDPROC
 ;
 DEFPROC initNewGame()
   ; define player and game state
-  LET %x=120: LET %y=0: LET %l=4: LET %s=32: ; s= SPRITE
-  LET %d=1: LET %z=8: ; direction & speed
+  LET %x=120: LET %y=0: LET %l=4: LET %s=48: ; s= SPRITE + 4 for old skoool
+  LET %d=1: LET %z=%2* INT {DIFFICULTY}: ; direction & speed
   LET %P=%$ffff: ; t=baddie speed, %P = last position
   LET %a=%$ffff
-  LET %r=1
+  LET %r=1: ; level
+  LET %c=3: ; global badie count
+  ;
   PROC initSprites()
   PROC initBaddies()
   PROC initTombs()
