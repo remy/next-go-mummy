@@ -55,7 +55,7 @@ DEFPROC updateLoop()
   LET %b=1: ; baddie loop
   REPEAT
     %i=%b*6: ; 6 props (easy to mess this up!)
-    ;PROC updateBaddie(): SPRITE %b,%A[i]+32,%A[i+1]+48,%A[i+2],%A[i+5]&A[i+4]
+    PROC updateBaddie(): SPRITE %b,%A[i]+32,%A[i+1]+48,%A[i+2],%A[i+5]&A[i+4]
     ; note: updatePlayer overwrites %i ... sorry.
     IF %b MOD ((c+1)/2)=0 THEN SPRITE MOVE :
     LET %b=%b+1
@@ -239,7 +239,7 @@ ENDPROC
 DEFPROC takeLife()
   LET %l=%l-1
   FOR %i=0 TO 2
-    ;   SPRITE %11+i,%200+(i*16),%32,60,%i < l: ; draw lives
+    SPRITE %11+i,%200+(i*16),%32,60,%i < l: ; draw lives
   NEXT %i
 ENDPROC
 ;
