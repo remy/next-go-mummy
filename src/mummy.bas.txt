@@ -3,6 +3,7 @@
 ; Oh Mummy (clone), Remy Sharp 2020
 ;
 RUN AT 3: REM 3.5Mhz (0 = 3.5, 1 = 7 (aim), 2 = 14 (likely))
+LET S$="MUMMY-R"
 ;
 ; ************ TODO ***************
 ; - [ ] Open tomb effect (spr@8-11 + 12 transparency)
@@ -17,7 +18,7 @@ RUN AT 3: REM 3.5Mhz (0 = 3.5, 1 = 7 (aim), 2 = 14 (likely))
 ; %a = player last corner, used for tomb calc - initilised to $FF
 ; b = baddie index
 ; A[] = baddie array (allows for > 64 elements)
-; c = baddie count
+; %c = baddie count
 ; %d = player sprite flags (mirror, etc)
 ; %e = BANK that's used to track where the baddies are
 ; %l = player lives
@@ -25,7 +26,9 @@ RUN AT 3: REM 3.5Mhz (0 = 3.5, 1 = 7 (aim), 2 = 14 (likely))
 ; %q = bank array of map and objects on map
 ; %r = current level
 ; %s = player sprite
+; S$ = sprite filename prefix (mummy and mummy-r for retro)
 ; %T(21) = tomb array 0-19 with index 20 used for temp rendering, with 8bit flags
+; %t = items to find - defaults to 2
 ; %W(4) = array(4) of tombs with items behind theme
 ; %x = player x
 ; %y = player y
@@ -35,7 +38,7 @@ RUN AT 3: REM 3.5Mhz (0 = 3.5, 1 = 7 (aim), 2 = 14 (likely))
 ; i, j, k - then - f, g, h, m, n, o, q
 ; **********************************
 ;
-RANDOMIZE %2
+RANDOMIZE %19
 ; clean the screen on stop
 ;ON ERROR : ERROR TO er,lin,st: PROC cleanUp(er,lin,st)
 ;
@@ -85,6 +88,7 @@ DEFPROC updatePlayer()
   ;
   ; note that %x > $ff means the integer has gone from 0, to -1, but it's unsigned
   ; so it'll be up in the 65K range, so this check against 255 is good enough
+  IF %j&@1000 AND (y=0) AND (x=120) THEN PRINT AT 0,0;"exit";
   IF %x > $ff THEN : LET %x=0: ELSE IF %x > 240 THEN : LET %x=240
   IF %y > $ff THEN : LET %y=0: ELSE IF %y > 160 THEN : LET %y=160
   ;
@@ -133,12 +137,11 @@ ENDPROC =%i,%i+1
 ;
 DEFPROC openTomb(%i)
   IF %i=20 THEN ENDPROC
-  IF %T(i)&8=8 THEN ENDPROC : ; FIXME is this always false?
+  IF %T(i)&8=8 THEN ENDPROC : ; Tomb is open, exit FIXME is this always false?
   ;
-  ; PRINT AT 0,0;"tomb ";%i;" contained ";%T(i);" "
-  ; PRINT AT 1,0;%2+((i MOD 5)*6);"/";%3+((i/5)*6);" "
-  ; PRINT AT 1,0;"i:";%i;",T(i):";%T(i)
-  TILE 4,3 AT 0,3 TO %2+((i MOD 5)*6),%4+((i/5)*5)
+  LOCAL %y
+  %y=%3*T(i)+3
+  TILE 4,3 AT 0,%y TO %2+((i MOD 5)*6),%4+((i/5)*5)
   %T(i)=%T(i)+8: ; prevent the tomb from being reopened
 ENDPROC
 ;
@@ -151,7 +154,7 @@ DEFPROC treadMark(): ;down=0,up=2,left=4,right=6
   IF %P > 3 THEN %k=%(x/8) MOD 2: ELSE %k=%(y/8) MOD 2:%i=%k:%j=%k
   ;
   TILE 1,2 AT %P+k,0 TO %x/8+i,%y/8+j+2
-  %P=%$ffff: ; now they're not moving
+  %P=%$ffff: ; now we're not moving
 ENDPROC
 ;
 ; handle baddies
@@ -239,7 +242,7 @@ ENDPROC
 DEFPROC takeLife()
   LET %l=%l-1
   FOR %i=0 TO 2
-    SPRITE %11+i,%200+(i*16),%32,60,%i < l: ; draw lives
+    SPRITE %55+i,%200+(i*16),%24,%48+(i MOD 2),%i < l: ; draw lives
   NEXT %i
 ENDPROC
 ;
@@ -274,11 +277,11 @@ ENDPROC
 ; init functions
 ;
 DEFPROC initSprites()
-  LOAD "mummy.map" BANK 14: ; load tile map created at https://zx.remysharp.com/sprites/
+  LOAD S$+".map" BANK 14: ; load tile map created at https://zx.remysharp.com/sprites/
   TILE 32,24: ; print tile for 16 tile cols by 12 tile rows
-  LOAD "mummy.spr" BANK 16,0,4096
+  LOAD S$+".spr" BANK 16,0,4096
   SPRITE BANK 13
-  SPRITE CLEAR : SPRITE PRINT 1
+  SPRITE CLEAR : SPRITE PRINT 1: SPRITE BORDER 1
   ;
   ; footfall marks
   %j=0: ; =16 for old school
@@ -288,13 +291,28 @@ DEFPROC initSprites()
   FOR %i=%0 TO %7: READ %j: BANK %14 POKE %i,%j: NEXT %i
   FOR %i=%0 TO %7: READ %j: BANK %14 POKE %i+32,%j: NEXT %i
   ;
-  ; tombopen
+  ; tombopen @ y:3
+  DATA 11,11,11,11
+  DATA 11,11,11,11
+  DATA 11,11,11,11
+  ; Pharaoh @ y:6
+  DATA 64,65,68,69
+  DATA 66,67,70,71
+  DATA 80,81,84,85
+  ; key @ y:9
+  DATA 72,72,76,77
+  DATA 74,75,78,79
+  DATA 88,89,92,93
+  ; scroll @ y:12
+  DATA 96,97,100,101
+  DATA 98,99,102,103
+  DATA 112,113,116,117
+  ; chest @ y:15
+  DATA 104,105,108,109
+  DATA 106,107,110,111
+  DATA 120,121,124,125
   ;
-  DATA 9,9,9,9
-  DATA 9,9,9,9
-  DATA 9,9,9,9
-  ;
-  FOR %j=%3 TO %5
+  FOR %j=%3 TO %17
     FOR %i=%0 TO %3
       READ %k
       BANK %14 POKE %i+(32*j),%k
@@ -325,7 +343,7 @@ DEFPROC initBaddies()
   LET %j=6: ;n props
   FOR %i=1 TO %c: ;always have 9 baddie to update, to keep the rate constant
     LET %A[i*j]=% RND 192: ; 0 = x
-    LET %A[(i*j)+1]=% RND 4*40: ; 1 = y
+    LET %A[(i*j)+1]=%80+( RND 2*40): ; 1 = y - baddies start on bottom 3 rungs
     LET %A[(i*j)+2]=%44: ; 2 = SPRITE
     LET %A[(i*j)+3]=%1 << ( RND 2+2): ;3 = qaop/direction
     LET %A[(i*j)+4]=%$ff: ; 4 = alive
@@ -339,8 +357,9 @@ DEFPROC initTombs()
     LET %T(i)=%$f0: ; this is 11110000 - each edge is the high nibble and set as closed/waiting to be masked later
   NEXT %i
   PROC pickRandom()
-  FOR %i=%0 TO %3
-    %T(W(i))=%T(W(i))+i+1
+  ; generates: mummy, scroll, pharos, key
+  FOR %i=%1 TO %4
+    %T(W(i))=%T(W(i))+i
   NEXT %i
 ENDPROC
 ;
@@ -370,10 +389,11 @@ DEFPROC initOnce()
   SPRITE CLEAR
   ; LAYER OVER %@100
   LAYER 2,1
-  LOAD "mummy.spr" BANK 13: ; load spritesheet for tiles
+  LOAD S$+".spr" BANK 13: ; load spritesheet for tiles
   TILE BANK 13: ; point tiles to spritesheet
   TILE DIM 14,0,32,8: ; using tile bank 14, offset 0, tile 32 wide, tile size 8
   %e=%15: ; game map bank
+  BANK %e ERASE
   DIFFICULTY=4
 ENDPROC
 ;
