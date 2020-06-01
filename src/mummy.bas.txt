@@ -13,6 +13,7 @@ LET S$="MUMMY-R"
 ; - [ ] AI for baddie
 ; - [ ] Graphics for prize tombs
 ; - [ ] Score
+; - [ ] Possibly allow player in start position?
 ;
 ; ******** VARIABLE INDEX *********
 ;
@@ -355,9 +356,10 @@ ENDPROC
 ; initBaddies: %A=Array[[x,y,spr,angle(0: x, 1: y),direction(0: backward, 1: forward),alive]] (allowing for more than 10 baddies)
 ; note: i*j = j properties per baddie
 DEFPROC initBaddies()
+  BANK %e ERASE
   LET %j=6: ;n props
   FOR %i=1 TO %c: ;always have 9 baddie to update, to keep the rate constant
-    LET %A[i*j]=% RND 192: ; 0 = x
+    LET %A[i*j]=%16* RND 12: ; 0 = x
     LET %A[(i*j)+1]=%80+( RND 2*40): ; 1 = y - baddies start on bottom 3 rungs
     LET %A[(i*j)+2]=%44: ; 2 = SPRITE
     LET %A[(i*j)+3]=%1 << ( RND 2+2): ;3 = qaop/direction
@@ -409,7 +411,6 @@ DEFPROC initOnce()
   TILE BANK 13: ; point tiles to spritesheet
   TILE DIM 14,0,32,8: ; using tile bank 14, offset 0, tile 32 wide, tile size 8
   %e=%15: ; game map bank
-  BANK %e ERASE
   DIFFICULTY=4
 ENDPROC
 ;
@@ -433,11 +434,11 @@ ENDPROC
 DEFPROC nextLevel(l)
   LEVEL=l+1
   ; count how many baddies are left over, and carry them across
-  %i=%0
+  %q=%0
   FOR %j=1 TO %c
-    IF %A[(i*6)+4]=1 THEN %i=%i+1
+    IF %A[(j*6)+4]=$ff THEN %q=%q+1
   NEXT %j
-  %c=%i+1
+  %c=%q+1
 
   PROC initGameVars()
   PROC initSprites()
@@ -446,7 +447,6 @@ DEFPROC nextLevel(l)
   PROC treadMark()
   %l=%l+1: ; stupid, but can't be bothered to add more code
   PROC takeLife(): ; renders the lives
-  PRINT AT 10,0;"Baddies: ";%c
 ENDPROC
 ;
 DEFPROC fps()
