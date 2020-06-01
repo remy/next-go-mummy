@@ -96,8 +96,8 @@ DEFPROC updatePlayer()
   ; so it'll be up in the 65K range, so this check against 255 is good enough
   IF %x > $ff THEN : LET %x=0: ELSE IF %x > 240 THEN : LET %x=240
   ;
-  IF %t=1 THEN IF %j&@1000 AND (y=0) AND (x=120) THEN PROC up(%8):%t=0: SPRITE 64,%x+32,%y+48,%s,%d: ENDPROC
-  IF %y > $ff THEN : LET %y=0: ELSE IF %y > 160 THEN : LET %y=160
+  IF %t=1 THEN IF %j&@1000 AND (y=0) AND (x=96) THEN PROC up(%8):%t=0: SPRITE 64,%x+32,%y+48,%s,%d: ENDPROC
+  IF %y=$FFF0 OR (y=$FFF8) THEN : ELSE : IF %y > $ff THEN : LET %y=0: ELSE IF %y > 160 THEN : LET %y=160
   ;
   IF %P <> $ffff THEN PROC checkTomb()
   ;
@@ -165,7 +165,9 @@ DEFPROC treadMark(): ;down=0,up=2,left=4,right=6
   ;
   IF %P > 3 THEN %k=%(x/8) MOD 2: ELSE %k=%(y/8) MOD 2:%i=%k:%j=%k
   ;
-  IF %y < $ff THEN TILE 1,2 AT %P+k,0 TO %x/8+i,%y/8+j+2
+  %q=%y/8+j+2
+  IF %q > 8000 THEN %q=%q MOD 8192: ; handle when player is in start position
+  TILE 1,2 AT %P+k,0 TO %x/8+i,%q
   %P=%$ffff: ; now we're not moving
 ENDPROC
 ;
@@ -413,9 +415,9 @@ DEFPROC initOnce()
 ENDPROC
 ;
 DEFPROC initGameVars()
-  LET %x=120: LET %y=0: LET %s=48: ; s= SPRITE + 4 for old skoool
+  LET %x=96: LET %y=-16: LET %s=48: ; s= SPRITE + 4 for old skoool
   LET %d=1: ; direction & speed
-  LET %P=%$ffff: ; %P = last player position
+  LET %P=%0: ; %P = last player position
   LET %a=%$ffff
   LET %r=%0: ; can player kill a mummy?
 ENDPROC
@@ -432,17 +434,18 @@ ENDPROC
 DEFPROC nextLevel(l)
   LEVEL=l+1
   ; count how many baddies are left over, and carry them across
-  %i=%1
+  %i=%0
   FOR %j=1 TO %c
     IF %A[(i*6)+4]=1 THEN %i=%i+1
   NEXT %j
   %c=%i+1
-  PRINT AT 0,0;"Baddies: ";%c
+  PRINT AT 10,0;"Baddies: ";%c
 
   PROC initGameVars()
   PROC initSprites()
   PROC initBaddies()
   PROC initTombs()
+  PROC treadMark()
   %l=%l+1: ; stupid, but can't be bothered to add more code
   PROC takeLife(): ; renders the lives
 ENDPROC
