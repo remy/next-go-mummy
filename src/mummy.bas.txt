@@ -24,7 +24,7 @@ LET S$="MUMMY-R"
 ; %l = player lives
 ; %P = player last position, used for tread marks - initilised to $FFFF
 ; %q = bank array of map and objects on map
-; %r = current level
+; %r = <free>
 ; %s = player sprite
 ; S$ = sprite filename prefix (mummy and mummy-r for retro)
 ; %T(21) = tomb array 0-19 with index 20 used for temp rendering, with 8bit flags
@@ -33,6 +33,9 @@ LET S$="MUMMY-R"
 ; %x = player x
 ; %y = player y
 ; %z = sprite speed (for both player and baddie) - constant at 8
+; --- non int vars ---
+; DIFFICULTY = how fast/smart the mummy's are (currently not!)
+; LEVEL = current level
 ;
 ; TMP VARIABLES
 ; i, j, k - then - f, g, h, m, n, o, q
@@ -43,13 +46,14 @@ RANDOMIZE %19
 ;ON ERROR : ERROR TO er,lin,st: PROC cleanUp(er,lin,st)
 ;
 PROC initOnce()
+PROC initNewGame()
 ; core loop
 REPEAT
-  PROC initNewGame(): ; setup new game
   REPEAT
+    IF INKEY$ ="t" THEN %t=1
     PROC updateLoop(): ; update logic and render
-  REPEAT UNTIL %l=0: ; until zero lives
-  PROC gameOver(): ; then print game over
+  REPEAT UNTIL %l=0 OR (t=0): ; until zero lives
+  IF %t=0 THEN PROC nextLevel(LEVEL): ELSE PROC gameOver()
 REPEAT UNTIL 0: ; repeat forever
 ;
 ; start main game loop - we do only one thing at a time in the main loop
@@ -68,6 +72,7 @@ DEFPROC updateLoop()
 ENDPROC
 ;
 DEFPROC updatePlayer()
+  PRINT AT 0,0;%t
   PROC treadMark(): ; put treadmarks on the place we're about to move away from
   ;
   LET %j= IN 31: ; check the joystick and then keys
@@ -81,15 +86,16 @@ DEFPROC updatePlayer()
   ; IF %j&$0f=0 THEN LET %P=%$ffff: ENDPROC : ; play isn't moving, early exit
   ;
   ; if I can't move on x plane, check y
-  IF %x MOD 48 THEN : ELSE : IF %j&@0100 THEN PROC down(%8): ELSE IF %j&@1000 THEN PROC up(%8)
+  IF %x MOD 48 THEN : ELSE : IF %j&@0100 THEN PROC down(%8): ELSE IF %y > 0 AND (j&@1000) THEN PROC up(%8)
   IF %P <> $ffff THEN PROC checkTomb(): ; %P = $ffff if they haven't moved
   ;
   IF %y MOD 40 THEN : ELSE : IF %j&@0010 THEN PROC left(%8): ELSE IF %j&@0001 THEN PROC right(%8)
   ;
   ; note that %x > $ff means the integer has gone from 0, to -1, but it's unsigned
   ; so it'll be up in the 65K range, so this check against 255 is good enough
-  IF %j&@1000 AND (y=0) AND (x=120) THEN PRINT AT 0,0;"exit";
   IF %x > $ff THEN : LET %x=0: ELSE IF %x > 240 THEN : LET %x=240
+  ;
+  IF %t=1 THEN IF %j&@1000 AND (y >= 0) AND (x=120) THEN PROC up(%8):%t=0: SPRITE 64,%x+32,%y+48,%s,%d: ENDPROC
   IF %y > $ff THEN : LET %y=0: ELSE IF %y > 160 THEN : LET %y=160
   ;
   IF %P <> $ffff THEN PROC checkTomb()
@@ -136,24 +142,28 @@ DEFPROC getYTombs(): ; uses scoped %g var from checkTomb
 ENDPROC =%i,%i+1
 ;
 DEFPROC openTomb(%i)
+  LOCAL %j
+  %j=%T(i)
   IF %i=20 THEN ENDPROC
-  IF %T(i)&8=8 THEN ENDPROC : ; Tomb is open, exit FIXME is this always false?
+  IF %j&8=8 THEN ENDPROC : ; Tomb is open, exit FIXME is this always false?
   ;
   LOCAL %y
-  %y=%3*T(i)+3
+  %y=%(3*j)+3
   TILE 4,3 AT 0,%y TO %2+((i MOD 5)*6),%4+((i/5)*5)
-  %T(i)=%T(i)+8: ; prevent the tomb from being reopened
+  IF %j=1 OR (j=2) THEN %t=%t-1
+  %T(i)=%j+8: ; prevent the tomb from being reopened
 ENDPROC
 ;
 ; leave tread marks
 DEFPROC treadMark(): ;down=0,up=2,left=4,right=6
+  ; ON ERROR : ENDPROC : ; this happens at the end of a level
   IF %P=$ffff THEN ENDPROC : ; didn't move
   IF %P=4 THEN LET %i=%2: ELSE LET %i=%0: ; if left +1, right = -1
   IF %P=2 THEN LET %j=%1: ELSE LET %j=%0
   ;
   IF %P > 3 THEN %k=%(x/8) MOD 2: ELSE %k=%(y/8) MOD 2:%i=%k:%j=%k
   ;
-  TILE 1,2 AT %P+k,0 TO %x/8+i,%y/8+j+2
+  IF %y < $ff THEN TILE 1,2 AT %P+k,0 TO %x/8+i,%y/8+j+2
   %P=%$ffff: ; now we're not moving
 ENDPROC
 ;
@@ -282,6 +292,7 @@ DEFPROC initSprites()
   LOAD S$+".spr" BANK 16,0,4096
   SPRITE BANK 13
   SPRITE CLEAR : SPRITE PRINT 1: SPRITE BORDER 1
+  SPRITE STOP : ; switch to batching
   ;
   ; footfall marks
   %j=0: ; =16 for old school
@@ -335,6 +346,7 @@ DEFPROC gameOver()
   PRINT AT 8,7;"                 "
   INVERSE 0
   REPEAT : REPEAT UNTIL INKEY$ ="s":
+  PROC initNewGame(): ; setup new game
 ENDPROC
 ;
 ; initBaddies: %A=Array[[x,y,spr,angle(0: x, 1: y),direction(0: backward, 1: forward),alive]] (allowing for more than 10 baddies)
@@ -361,25 +373,26 @@ DEFPROC initTombs()
   FOR %i=%1 TO %4
     %T(W(i))=%T(W(i))+i
   NEXT %i
+  %t=3
 ENDPROC
 ;
 DEFPROC pickRandom()
-  LOCAL %N: LOCAL %P: LOCAL %T
-  %N=20: ; select from 0-20 (excluding 20)
-  %P=4: ; pick 4 numbers
+  LOCAL %n: LOCAL %p: LOCAL %t
+  %n=20: ; select from 0-20 (excluding 20)
+  %p=4: ; pick 4 numbers
   %i=0
   ; init the 0-N array
   REPEAT
     %S(i)=%i
     %i=%i+1
-  REPEAT UNTIL %i=N
+  REPEAT UNTIL %i=n
   ; then go back downwards for P values
   REPEAT
-    %T=% RND i
-    %W(N-i)=%S(T)
+    %t=% RND i
+    %W(n-i)=%S(t): ; W is our global (winning positions)
     %i=%i-1
-    %S(T)=%S(i)
-  REPEAT UNTIL %i=(N-P)
+    %S(t)=%S(i)
+  REPEAT UNTIL %i=(n-p)
   ; pickings are in global array W
 ENDPROC
 ;
@@ -397,20 +410,36 @@ DEFPROC initOnce()
   DIFFICULTY=4
 ENDPROC
 ;
+DEFPROC initGameVars()
+  LET %x=120: LET %y=0: LET %l=4: LET %s=48: ; s= SPRITE + 4 for old skoool
+  LET %d=1: ; direction & speed
+  LET %P=%$ffff: ; %P = last player position
+  LET %a=%$ffff
+ENDPROC
+;
 DEFPROC initNewGame()
   ; define player and game state
-  LET %x=120: LET %y=0: LET %l=4: LET %s=48: ; s= SPRITE + 4 for old skoool
-  LET %d=1: LET %z=%2* INT {DIFFICULTY}: ; direction & speed
-  LET %P=%$ffff: ; t=baddie speed, %P = last position
-  LET %a=%$ffff
-  LET %r=1: ; level
+  LET %z=%2* INT {DIFFICULTY}: ; baddie speed
   LET %c=1: ; global badie count
   ;
+  PROC nextLevel(0)
+  PROC takeLife(): ; triggers render
+ENDPROC
+;
+DEFPROC nextLevel(l)
+  LEVEL=l+1
+  ; count how many baddies are left over, and carry them across
+  %i=%0
+  FOR %j=1 TO %c
+    IF %A[(i*6)+4]=$ff THEN %i=%i+1
+  NEXT %j
+  %c=%i+1
+  PRINT AT 0,0;"Baddies: ";%c
+
+  PROC initGameVars()
   PROC initSprites()
   PROC initBaddies()
   PROC initTombs()
-  SPRITE STOP : ; switch to batching
-  PROC takeLife()
 ENDPROC
 ;
 DEFPROC fps()
