@@ -7,9 +7,9 @@ RUN AT 3: REM 3.5Mhz (0 = 3.5, 1 = 7 (aim), 2 = 14 (likely))
 LET S$="MUMMY-R"
 ;
 ; ************ TODO ***************
-; - [ ] Open tomb effect (spr@8-11 + 12 transparency)
+; - [x] Open tomb effect (spr@8-11 + 12 transparency)
 ; - [ ] Welcome screen / start game
-; - [ ] Level up
+; - [x] Level up
 ; - [ ] AI for baddie
 ; - [ ] Graphics for prize tombs
 ; - [ ] Score
@@ -42,7 +42,7 @@ LET S$="MUMMY-R"
 ; i, j, k - then - f, g, h, m, n, o, q
 ; **********************************
 ;
-RANDOMIZE %19
+RANDOMIZE %19: ; fixme - randomize off user interaction
 ; clean the screen on stop
 ;ON ERROR : ERROR TO er,lin,st: PROC cleanUp(er,lin,st)
 ;
@@ -51,7 +51,7 @@ PROC initNewGame()
 ; core loop
 REPEAT
   REPEAT
-    IF INKEY$ ="t" THEN %t=1
+    IF INKEY$ ="t" THEN %t=1: ; FIXME remove TESTING ONLY
     PROC updateLoop(): ; update logic and render
   REPEAT UNTIL %l=0 OR (t=0): ; until zero lives
   IF %t=0 THEN PROC nextLevel(LEVEL): ELSE PROC gameOver()
@@ -59,7 +59,7 @@ REPEAT UNTIL 0: ; repeat forever
 ;
 ; start main game loop - we do only one thing at a time in the main loop
 DEFPROC updateLoop()
-  PROC updatePlayer():
+  PROC updatePlayer()
   LET %b=1: ; baddie loop
   REPEAT
     %i=%b*6: ; 6 props (easy to mess this up!)
@@ -73,7 +73,6 @@ DEFPROC updateLoop()
 ENDPROC
 ;
 DEFPROC updatePlayer()
-  PRINT AT 0,0;"l";%l
   PROC treadMark(): ; put treadmarks on the place we're about to move away from
   ;
   LET %j= IN 31: ; check the joystick and then keys
@@ -90,7 +89,7 @@ DEFPROC updatePlayer()
   IF %x MOD 48 THEN : ELSE : IF %j&@0100 THEN PROC down(%8): ELSE IF %y > 0 AND (j&@1000) THEN PROC up(%8)
   IF %P <> $ffff THEN PROC checkTomb(): ; %P = $ffff if they haven't moved
   ;
-  IF %y MOD 40 THEN : ELSE : IF %j&@0010 THEN PROC left(%8): ELSE IF %j&@0001 THEN PROC right(%8)
+  IF %y MOD 40 OR (y > $ff) THEN : ELSE : IF %j&@0010 THEN PROC left(%8): ELSE IF %j&@0001 THEN PROC right(%8)
   ;
   ; note that %x > $ff means the integer has gone from 0, to -1, but it's unsigned
   ; so it'll be up in the 65K range, so this check against 255 is good enough
@@ -362,7 +361,7 @@ DEFPROC initBaddies()
     LET %A[(i*j)+1]=%80+( RND 2*40): ; 1 = y - baddies start on bottom 3 rungs
     LET %A[(i*j)+2]=%44: ; 2 = SPRITE
     LET %A[(i*j)+3]=%1 << ( RND 2+2): ;3 = qaop/direction
-    LET %A[(i*j)+4]=%1: ; 4 = alive
+    LET %A[(i*j)+4]=%$ff: ; 4 = alive (note to self: I changed this to 1 and baddie walked backwards)
     LET %A[(i*j)+5]=1: ; 5 = sprite flags
     BANK %e POKE %(32*(A[(i*j)+1]/8))+(A[i*j]/8),%i
   NEXT %i
@@ -415,7 +414,7 @@ DEFPROC initOnce()
 ENDPROC
 ;
 DEFPROC initGameVars()
-  LET %x=96: LET %y=-16: LET %s=48: ; s= SPRITE + 4 for old skoool
+  LET %x=96: LET %y=-16: LET %s=51: ; s= SPRITE + 4 for old skoool
   LET %d=1: ; direction & speed
   LET %P=%0: ; %P = last player position
   LET %a=%$ffff
@@ -439,7 +438,6 @@ DEFPROC nextLevel(l)
     IF %A[(i*6)+4]=1 THEN %i=%i+1
   NEXT %j
   %c=%i+1
-  PRINT AT 10,0;"Baddies: ";%c
 
   PROC initGameVars()
   PROC initSprites()
@@ -448,6 +446,7 @@ DEFPROC nextLevel(l)
   PROC treadMark()
   %l=%l+1: ; stupid, but can't be bothered to add more code
   PROC takeLife(): ; renders the lives
+  PRINT AT 10,0;"Baddies: ";%c
 ENDPROC
 ;
 DEFPROC fps()
