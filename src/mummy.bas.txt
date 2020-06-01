@@ -360,7 +360,7 @@ DEFPROC initBaddies()
     LET %A[(i*j)+1]=%80+( RND 2*40): ; 1 = y - baddies start on bottom 3 rungs
     LET %A[(i*j)+2]=%44: ; 2 = SPRITE
     LET %A[(i*j)+3]=%1 << ( RND 2+2): ;3 = qaop/direction
-    LET %A[(i*j)+4]=%$ff: ; 4 = alive
+    LET %A[(i*j)+4]=%1: ; 4 = alive
     LET %A[(i*j)+5]=1: ; 5 = sprite flags
     BANK %e POKE %(32*(A[(i*j)+1]/8))+(A[i*j]/8),%i
   NEXT %i
@@ -432,9 +432,9 @@ ENDPROC
 DEFPROC nextLevel(l)
   LEVEL=l+1
   ; count how many baddies are left over, and carry them across
-  %i=%0
+  %i=%1
   FOR %j=1 TO %c
-    IF %A[(i*6)+4]=$ff THEN %i=%i+1
+    IF %A[(i*6)+4]=1 THEN %i=%i+1
   NEXT %j
   %c=%i+1
   PRINT AT 0,0;"Baddies: ";%c
