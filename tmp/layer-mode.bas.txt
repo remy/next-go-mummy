@@ -1,0 +1,24 @@
+10 LAYER 2,0: REM disable Layer 2
+20 FOR m=0 TO 5
+30 PROC LayChange(m)
+40 BORDER 0: PAPER 0: INK 7: CLS : REM black out screen
+45 PRINT AT 0,0;"mode: ";m
+50 LET x1=0: LET y1=0: REM line start
+60 LET c=1: REM ink, starts with blue
+70 FOR r=0 TO 9: REM 10 repetitions
+80 LET x2= INT ( RND *256): LET y2= INT ( RND *128): REM random line end
+90 DRAW INK c;x2-x1,y2-y1
+100 LET x1=x2: LET y1=y2: REM next line starts where last one finished
+110 LET c=c+1: IF c=8 THEN LET c=1
+120 NEXT r
+130 PAUSE 0: REM Display inspection
+140 NEXT m
+150 STOP
+1000 DEFPROC LayChange(mode)
+1010 IF mode=0 THEN LAYER 0
+1020 IF mode=1 THEN LAYER 1,0
+1030 IF mode=2 THEN LAYER 1,1
+1040 IF mode=3 THEN LAYER 1,2
+1050 IF mode=4 THEN LAYER 1,3
+1060 IF mode=5 THEN LAYER 2,1
+1070 ENDPROC

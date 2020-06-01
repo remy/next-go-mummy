@@ -1,4 +1,5 @@
 #program mummy
+#autostart 10
 #autoline 10
 ; Oh Mummy (clone), Remy Sharp 2020
 ;
@@ -72,7 +73,7 @@ DEFPROC updateLoop()
 ENDPROC
 ;
 DEFPROC updatePlayer()
-  PRINT AT 0,0;%t
+  PRINT AT 0,0;"l";%l
   PROC treadMark(): ; put treadmarks on the place we're about to move away from
   ;
   LET %j= IN 31: ; check the joystick and then keys
@@ -95,7 +96,7 @@ DEFPROC updatePlayer()
   ; so it'll be up in the 65K range, so this check against 255 is good enough
   IF %x > $ff THEN : LET %x=0: ELSE IF %x > 240 THEN : LET %x=240
   ;
-  IF %t=1 THEN IF %j&@1000 AND (y >= 0) AND (x=120) THEN PROC up(%8):%t=0: SPRITE 64,%x+32,%y+48,%s,%d: ENDPROC
+  IF %t=1 THEN IF %j&@1000 AND (y=0) AND (x=120) THEN PROC up(%8):%t=0: SPRITE 64,%x+32,%y+48,%s,%d: ENDPROC
   IF %y > $ff THEN : LET %y=0: ELSE IF %y > 160 THEN : LET %y=160
   ;
   IF %P <> $ffff THEN PROC checkTomb()
@@ -107,7 +108,7 @@ DEFPROC updatePlayer()
   IF %A[i+4]=0 THEN ENDPROC
   %A[i+4]=0
   %A[i+5]=0
-  PROC takeLife()
+  IF %r=0 THEN PROC takeLife(): ELSE %r=0
 ENDPROC
 ;
 DEFPROC checkTomb()
@@ -150,7 +151,8 @@ DEFPROC openTomb(%i)
   LOCAL %y
   %y=%(3*j)+3
   TILE 4,3 AT 0,%y TO %2+((i MOD 5)*6),%4+((i/5)*5)
-  IF %j=1 OR (j=2) THEN %t=%t-1
+  IF %j=1 OR (j=2) THEN %t=%t-1: ; pharos or key
+  IF %j=3 THEN %r=%1: ; scroll
   %T(i)=%j+8: ; prevent the tomb from being reopened
 ENDPROC
 ;
@@ -411,19 +413,20 @@ DEFPROC initOnce()
 ENDPROC
 ;
 DEFPROC initGameVars()
-  LET %x=120: LET %y=0: LET %l=4: LET %s=48: ; s= SPRITE + 4 for old skoool
+  LET %x=120: LET %y=0: LET %s=48: ; s= SPRITE + 4 for old skoool
   LET %d=1: ; direction & speed
   LET %P=%$ffff: ; %P = last player position
   LET %a=%$ffff
+  LET %r=%0: ; can player kill a mummy?
 ENDPROC
 ;
 DEFPROC initNewGame()
   ; define player and game state
   LET %z=%2* INT {DIFFICULTY}: ; baddie speed
   LET %c=1: ; global badie count
+  LET %l=3: ; lives
   ;
   PROC nextLevel(0)
-  PROC takeLife(): ; triggers render
 ENDPROC
 ;
 DEFPROC nextLevel(l)
@@ -440,6 +443,8 @@ DEFPROC nextLevel(l)
   PROC initSprites()
   PROC initBaddies()
   PROC initTombs()
+  %l=%l+1: ; stupid, but can't be bothered to add more code
+  PROC takeLife(): ; renders the lives
 ENDPROC
 ;
 DEFPROC fps()
