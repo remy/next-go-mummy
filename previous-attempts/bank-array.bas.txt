@@ -1,0 +1,51 @@
+#autoline 10
+
+; x, y
+; direction (P)
+; sprite (S)
+; sprite flags (d)
+; lives (l)
+
+%e=15: ; bank
+%o=800: ; above the baddie shadow map
+
+BANK %e ERASE
+
+PROC makePlayer(96,16,0)
+PROC restoreEntity(0)
+PRINT %o;",";%x;",";%y;",";%P;",";%s;",";%d;",";%l;"    <"
+PRINT
+PROC makePlayer(8,100,1)
+PROC restoreEntity(1)
+PRINT %o+(1*6);",";%x;",";%y;",";%P;",";%s;",";%d;",";%l;"    <"
+PRINT
+PROC restoreEntity(0)
+PRINT %o;",";%x;",";%y;",";%P;",";%s;",";%d;",";%l;"    <"
+
+PAUSE 0
+
+DEFPROC makePlayer(x,y,i)
+  LET %x=x: LET %y=y: LET %s=51: ; s= SPRITE + 4 for old skoool
+  LET %d=1: ; direction & speed
+  LET %P=%0: ; %P = last player position
+  %l=3
+  PROC saveEntity(i)
+ENDPROC
+;
+DEFPROC saveEntity(%i)
+  PRINT "save<x";%x
+  PRINT "save<y";%y
+  BANK %e POKE %o+(i*6),%x,%y,%P,%s,%d,%l
+ENDPROC
+;
+DEFPROC restoreEntity(%i)
+  %x=% BANK e PEEK (o+(i*6))
+  %y=% BANK e PEEK (o+(i*6)+1)
+  %P=% BANK e PEEK (o+(i*6)+2)
+  %s=% BANK e PEEK (o+(i*6)+3)
+  %d=% BANK e PEEK (o+(i*6)+4)
+  %l=% BANK e PEEK (o+(i*6)+5)
+  PRINT "restore>x";%x
+  PRINT "restore>y";%y
+
+ENDPROC
