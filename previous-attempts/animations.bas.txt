@@ -1,0 +1,65 @@
+#autoline 10
+RUN AT 1
+%x=50
+%y=50
+%s=48
+%d=1
+%z=4
+
+PROC init()
+PROC loop()
+
+DEFPROC update()
+  i$= INKEY$
+  IF i$="o" THEN PROC left()
+  IF i$="p" THEN PROC right()
+
+  ; SPRITE 1,%x+32,%y+48,%s,%d
+ENDPROC
+
+DEFPROC left()
+  %x=%x-z
+  %d=%@1001
+  %s=%s+1: IF %s > 49 THEN %s=48
+ENDPROC
+
+DEFPROC right()
+  %x=%x+z
+  %d=%@0001
+  %s=%s+1: IF %s > 49 THEN %s=48
+ENDPROC
+
+DEFPROC loop()
+  REPEAT
+    ;   PROC update()
+    IF % SPRITE CONTINUE 2=0 THEN PRINT AT 0,0;"ok": SPRITE CONTINUE 2,255 STOP ,160 TO 100 STEP 2 RUN ,44 TO 45, BIN 01011000,2
+    SPRITE MOVE INT
+  REPEAT UNTIL 0
+ENDPROC
+
+
+DEFPROC init()
+  SPRITE CLEAR
+  LOAD "mummy-r.spr" BANK 12
+  SPRITE BANK 12
+  SPRITE STOP
+
+;SPRITE CONTINUE s, [x1 [TO x2]] [STEP xs] [RUN or STOP],
+;[y1 [TO y2]] [STEP ys] [RUN or STOP],
+;[p1 [TO p2]],
+;[f], [r], [d]
+
+  ; SPRITE 1,%x+32,%y+48,%s,%d
+  SPRITE 1,50,50,48,1
+  SPRITE CONTINUE 1,32 TO 255 STEP 8 RUN ,50 TO 50 STEP 2 RUN ,48 TO 49, BIN 00001000,4
+
+  SPRITE 2,32,160,44,%@1001
+  SPRITE CONTINUE 2,32 TO 255 STEP 4 RUN ,160 STOP ,44 TO 45, BIN 10000110,2
+
+  ; SPRITE CONTINUE 2,32 TO 255 STEP 4 RUN ,160 TO 160 STEP 2 RUN ,44 TO 45, BIN 01011000,2
+
+  LAYER CLEAR
+  PAPER 0: INK 3: BORDER 2: CLS
+  SPRITE PRINT 1: SPRITE BORDER 1
+
+ENDPROC
