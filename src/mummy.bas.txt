@@ -7,13 +7,15 @@ RUN AT 3: REM 3.5Mhz (0 = 3.5, 1 = 7 (aim), 2 = 14 (likely))
 LET S$="MUMMY-R"
 ;
 ; ************ TODO ***************
-; - [x] Open tomb effect (spr@8-11 + 12 transparency)
+; - [ ] AI for baddie & dumb baddies
+; - [ ] Fix tomb 9 affecting tomb 10
+; - [ ] Fix treasure always at tomb 0
 ; - [ ] Welcome screen / start game
-; - [x] Level up
-; - [ ] AI for baddie
-; - [ ] Graphics for prize tombs
 ; - [ ] Score
-; - [ ] Possibly allow player in start position?
+; - [x] Open tomb effect (spr@8-11 + 12 transparency)
+; - [x] Level up
+; - [x] Graphics for prize tombs
+; - [x] Possibly allow player in start position?
 ;
 ; ******** VARIABLE INDEX *********
 ;
@@ -66,7 +68,7 @@ DEFPROC updateLoop()
     %i=%b*6: ; 6 props (easy to mess this up!)
     PROC updateBaddie(): SPRITE %b,%A[i]+32,%A[i+1]+48,%A[i+2],%A[i+5]&A[i+4]
     ; note: updatePlayer overwrites %i ... sorry.
-    IF %b MOD ((c+1)/2)=0 THEN SPRITE MOVE :
+    ;   IF %b MOD ((c+1)/2)=0 THEN SPRITE MOVE :
     LET %b=%b+1
   REPEAT UNTIL %b=(c+1)
   SPRITE MOVE
@@ -150,6 +152,8 @@ DEFPROC openTomb(%i)
   ;
   LOCAL %y
   %y=%(3*j)+3
+  ; I can't remember why this line ends with 4+i*5/5, but I did work it out
+  ; and when I just do %4+i the tile drawing messes up, where as this is fine...
   TILE 4,3 AT 0,%y TO %2+((i MOD 5)*6),%4+((i/5)*5)
   IF %j=1 OR (j=2) THEN %t=%t-1: ; pharos or key
   IF %j=3 THEN %r=%1: ; scroll
@@ -187,7 +191,8 @@ ENDPROC
 DEFPROC checkBaddie(%a,%x,%y)
   LOCAL %i: LOCAL %j
   ON ERROR ENDPROC =%0: ; don't bother with out of bound checks, just exit
-  %f=% BANK e PEEK ((32*(y >> 3))+(x >> 3))
+  ; 32 * (y/8) + (x/8) = y << 2 + x >> 3
+  %f=% BANK e PEEK ((y << 2)+(x >> 3))
 
   IF %f=0 OR (f=b) THEN ENDPROC =%0
 
@@ -205,52 +210,52 @@ DEFPROC baddieD(): ; baddie down
   PROC checkBaddie(%i,%A[i],%A[i+1]+z) TO %f
 
   IF %f THEN ENDPROC
-  BANK %e POKE %(32*(A[i+1] >> 3))+(A[i] >> 3),%0
+  BANK %e POKE %(A[i+1] << 2)+(A[i] >> 3),%0
   %A[i+1]=%A[i+1]+z
 
   IF %A[i+1] > 160 THEN %A[i+1]=160: ; edge
   %A[i+2]=47: ; sprite
   %A[i+5]=%A[i+5]^@1000: ;set sprite to up, and flip bits
-  BANK %e POKE %(32*(A[i+1] >> 3))+(A[i] >> 3),%b
+  BANK %e POKE %(A[i+1] << 2)+(A[i] >> 3),%b
 ENDPROC
 ;
 DEFPROC baddieU(): ; baddie up
   PROC checkBaddie(%i,%A[i],%A[i+1]-z) TO %f
 
   IF %f THEN ENDPROC
-  BANK %e POKE %(32*(A[i+1] >> 3))+(A[i] >> 3),%0
+  BANK %e POKE %(A[i+1] << 2)+(A[i] >> 3),%0
   %A[i+1]=%A[i+1]-z
 
   IF %A[i+1] > $ff THEN %A[i+1]=0
   %A[i+2]=46
   %A[i+5]=%A[i+5]^@1000: ;set sprite to up, and flip bits
-  BANK %e POKE %(32*(A[i+1] >> 3))+(A[i] >> 3),%b
+  BANK %e POKE %(A[i+1] << 2)+(A[i] >> 3),%b
 ENDPROC
 ;
 DEFPROC baddieL(): ; baddie left
   PROC checkBaddie(%i,%A[i]-z,%A[i+1]) TO %f
   ;
   IF %f THEN ENDPROC
-  BANK %e POKE %(32*(A[i+1] >> 3))+(A[i] >> 3),%0
+  BANK %e POKE %(A[i+1] << 2)+(A[i] >> 3),%0
   %A[i]=%A[i]-z
   IF %A[i] > $ff THEN %A[i]=0
 
   %A[i+2]=%A[i+2]+1: IF %A[i+2] > 45 THEN %A[i+2]=44: ;animate sprite
   %A[i+5]=%A[i+5]&@0001: ; turn off all bits and leave bit 0 alone
-  BANK %e POKE %(32*(A[i+1] >> 3))+(A[i] >> 3),%b
+  BANK %e POKE %(A[i+1] << 2)+(A[i] >> 3),%b
 ENDPROC
 ;
 DEFPROC baddieR(): ; baddie right
   PROC checkBaddie(%i,%A[i]+z,%A[i+1]) TO %f
   ;
   IF %f THEN ENDPROC
-  BANK %e POKE %(32*(A[i+1] >> 3))+(A[i] >> 3),%0
+  BANK %e POKE %(A[i+1] << 2)+(A[i] >> 3),%0
   %A[i]=%A[i]+z
   IF %A[i] > 240 THEN %A[i]=240
 
   %A[i+2]=%A[i+2]+1: IF %A[i+2] > 45 THEN %A[i+2]=44: ;animate sprite
   %A[i+5]=%(A[i+5]&1)+@1000: ; and flip bits %@1001
-  BANK %e POKE %(32*(A[i+1] >> 3))+(A[i] >> 3),%b
+  BANK %e POKE %(A[i+1] << 2)+(A[i] >> 3),%b
 ENDPROC
 ;
 DEFPROC takeLife()
@@ -330,7 +335,7 @@ DEFPROC initSprites()
   FOR %j=%3 TO %17
     FOR %i=%0 TO %3
       READ %k
-      BANK %14 POKE %i+(32*j),%k
+      BANK %14 POKE %i+(j << 5),%k
     NEXT %i
   NEXT %j
 

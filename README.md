@@ -10,7 +10,6 @@ For the OG version, I've used the [Internet Archive's copy of the Oh Mummy](http
 - Coded mostly in VS Code using my [NextBASIC VS Code extension](https://marketplace.visualstudio.com/items?itemName=remysharp.nextbasic)
 - Dev previews in [Cspect](http://cspect.org/) then running hardware tests on my ZX Spectrum Next.
 
-
 I've also started a devlog here: https://remysharp.com/devlog/#oh-mummy
 
 ---
