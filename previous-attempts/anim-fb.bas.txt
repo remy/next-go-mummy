@@ -1,0 +1,24 @@
+10 BANK NEW a: LOAD "test.spr" BANK a: SPRITE BANK a
+20 SPRITE CLEAR : SPRITE PRINT 1
+30 %x=160:%y=80:%p=0:%d=40: ; x,y - sprite's coordinates; p - sprite's pattern; d - distance to move sprite in pixels
+40 SPRITE 0,%x,%y,%p,%@00001001
+50 SPRITE CONTINUE 0,%x-d TO %x STEP -1 RUN ,%y,%p,%@00000010
+60 PROC MoveSpr(%d)
+70 %x=%x-d: SPRITE 0,,,,%@00001011: ; update coordinate and adjust sprite orientation as needed
+80 SPRITE CONTINUE 0,%x,%y TO %y+d STEP 1 RUN ,%p,%00000010
+90 PROC MoveSpr(%d)
+100 %y=%y+d: SPRITE 0,,,,%@00000001: ; update coordinate and adjust sprite orientation as needed
+110 SPRITE CONTINUE 0,%x TO %x+d STEP 1 RUN ,%y,%p,%00000010
+120 PROC MoveSpr(%d)
+130 %x=%x+d: SPRITE 0,,,,%@00000011: ; update coordinate and adjust sprite orientation as needed
+140 SPRITE CONTINUE 0,%x,%y TO %y+d STEP 1 RUN ,%p,%00000010
+150 PROC MoveSpr(%d)
+160 %y=%y+d: SPRITE 0,,,,%@00001001: ; update coordinate and adjust sprite orientation as needed
+170 SPRITE CONTINUE 0,%x-d TO %x STEP -1 RUN ,%y,%p,%@00000010
+180 PROC MoveSpr(%d)
+190 STOP
+200 DEFPROC MoveSpr(%d)
+210 FOR %i=1 TO %d
+220 PAUSE 1: SPRITE MOVE
+230 NEXT %i
+240 ENDPROC

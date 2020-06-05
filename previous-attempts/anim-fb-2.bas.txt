@@ -1,0 +1,50 @@
+#autoline 10
+; ========   VARS   ========
+; %x, %y = sprite coords
+; %m = loop constant (run 30 times, then repeat)
+; %o = direction point (see in BANK 17) and used in path()
+; %p = position in bank 17 for sprite path
+; %t = current loop tick
+;
+LAYER CLEAR : SPRITE CLEAR : SPRITE PRINT 1: LAYER 0: CLS : LAYER 2,1: BORDER 1: PAPER 255: CLS
+;
+RUN AT 3
+;
+LOAD "test.spr" BANK 16
+SPRITE BANK 16
+;
+BANK 17 POKE 0,0,0,1,2,1,0,1,2,1: ; sprite pattern at offset 0 on bank 17 (9 points)
+;
+LET %x=140: LET %y=32
+LET %m=15: LET %t=0: LET %p=1: LET %o=0
+SPRITE 0,%x,%y,0,1: ; sprite #0, x, y, pattern 0, 1 = display
+;
+PROC path()
+; main loop
+REPEAT
+  LET %t=%t+1
+  ; if done 30 ticks, then:
+  ;  - increment the current movement pattern
+  ;  - PEEK current movement value into %o
+  ;  - capture x & y from sprite #0's current x, y position (2nd arg: 0 = x, 1 = y)
+  IF %t=m THEN LET %t=0: LET %p=%p+1: LET %o=% BANK 17 PEEK p: LET %x=% SPRITE AT (0,0): LET %y=% SPRITE AT (0,1): PROC path()
+  ;
+  IF %p=8 THEN LET %p=0: ; loop the pattern at the 9th data point
+  IF % SPRITE AT (0,1) > 220 THEN SPRITE 0,,32: ; if sprite is at right edge of screen, change pattern to 32 (from 0)
+  SPRITE MOVE INT
+;
+REPEAT UNTIL 0
+;
+STOP : ; won't reach
+;
+DEFPROC path()
+  ; for direction, do:
+  ;   - STOP other axis (i.e. going right, stop Y axis)
+  ;   - RUN from axis to axis - %m (const 30)
+  ;   - no pattern
+  ;   - flags: BIN 10 = "stop this direction when x/y limit reached"
+  IF %o=0 THEN SPRITE CONTINUE 0,%x TO %x+m STEP 1 RUN , STOP ,, BIN 10 : ENDPROC : REM right
+  IF %o=1 THEN SPRITE CONTINUE 0, STOP ,%y TO %y+m STEP 1 RUN ,, BIN 10 : ENDPROC : REM down
+  IF %o=2 THEN SPRITE CONTINUE 0,%x-m TO %x STEP -1 RUN , STOP ,, BIN 10 : ENDPROC : REM left
+  IF %o=3 THEN SPRITE CONTINUE 0, STOP ,%y-m TO %y STEP -1 RUN ,, BIN 10 : ENDPROC : REM up
+ENDPROC
