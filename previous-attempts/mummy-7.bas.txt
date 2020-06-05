@@ -1,0 +1,471 @@
+#program mummy
+#autostart 10
+#autoline 10
+; Oh Mummy (clone), Remy Sharp 2020
+;
+RUN AT 3: REM 3.5Mhz (0 = 3.5, 1 = 7 (aim), 2 = 14 (likely))
+LET S$="MUMMY-R"
+;
+; ************ TODO ***************
+; - [x] Open tomb effect (spr@8-11 + 12 transparency)
+; - [ ] Welcome screen / start game
+; - [x] Level up
+; - [ ] AI for baddie
+; - [ ] Graphics for prize tombs
+; - [ ] Score
+; - [ ] Possibly allow player in start position?
+;
+; ******** VARIABLE INDEX *********
+;
+; %a = player last corner, used for tomb calc - initilised to $FF
+; b = baddie index
+; A[] = baddie array (allows for > 64 elements)
+; %c = baddie count
+; %d = player sprite flags (mirror, etc)
+; %e = BANK that's used to track where the baddies are
+; %l = player lives
+; %P = player last position, used for tread marks - initilised to $FFFF
+; %q = bank array of map and objects on map
+; %r = <free>
+; %s = player sprite
+; S$ = sprite filename prefix (mummy and mummy-r for retro)
+; %T(21) = tomb array 0-19 with index 20 used for temp rendering, with 8bit flags
+; %t = items to find - defaults to 2
+; %W(4) = array(4) of tombs with items behind theme
+; %x = player x
+; %y = player y
+; %z = sprite speed (for both player and baddie) - constant at 8
+; --- non int vars ---
+; DIFFICULTY = how fast/smart the mummy's are (currently not!)
+; LEVEL = current level
+;
+; TMP VARIABLES
+; i, j, k - then - f, g, h, m, n, o, q
+; **********************************
+;
+RANDOMIZE %19: ; fixme - randomize off user interaction
+; clean the screen on stop
+;ON ERROR : ERROR TO er,lin,st: PROC cleanUp(er,lin,st)
+;
+PROC initOnce()
+PROC initNewGame()
+; core loop
+REPEAT
+  REPEAT
+    IF INKEY$ ="t" THEN %t=1: ; FIXME remove TESTING ONLY
+    PROC updateLoop(): ; update logic and render
+  REPEAT UNTIL %l=0 OR (t=0): ; until zero lives
+  IF %t=0 THEN PROC nextLevel(LEVEL): ELSE PROC gameOver()
+REPEAT UNTIL 0: ; repeat forever
+;
+; start main game loop - we do only one thing at a time in the main loop
+DEFPROC updateLoop()
+  PROC updatePlayer()
+  LET %b=1: ; baddie loop
+  REPEAT
+    %i=%b*6: ; 6 props (easy to mess this up!)
+    PROC updateBaddie(): SPRITE %b,%A[i]+32,%A[i+1]+48,%A[i+2],%A[i+5]&A[i+4]
+    ; note: updatePlayer overwrites %i ... sorry.
+    IF %b MOD ((c+1)/2)=0 THEN SPRITE MOVE :
+    LET %b=%b+1
+  REPEAT UNTIL %b=(c+1)
+  SPRITE MOVE
+  ; PROC fps(): PRINT AT 0,0;%f;"      ": ; f big = bad, small = good
+ENDPROC
+;
+DEFPROC updatePlayer()
+  PROC treadMark(): ; put treadmarks on the place we're about to move away from
+  ;
+  LET %j= IN 31: ; check the joystick and then keys
+  ;
+  IF %( IN $fbfe >> 0&1^1) THEN LET %j=%(j+@1000): ; Q
+  IF %( IN $fdfe >> 0&1^1) THEN LET %j=%(j+@0100): ; A
+  IF %( IN $dffe >> 1&1^1) THEN LET %j=%(j+@0010): ; O
+  IF %( IN $dffe >> 0&1^1) THEN LET %j=%(j+@0001): ; P
+  ;
+  ; NOTE I no longer do an early exit - this keeps the game speed constant, otherwise the baddies speed up
+  ; IF %j&$0f=0 THEN LET %P=%$ffff: ENDPROC : ; play isn't moving, early exit
+  ;
+  ; if I can't move on x plane, check y
+  IF %x MOD 48 THEN : ELSE : IF %j&@0100 THEN PROC down(%8): ELSE IF %y > 0 AND (j&@1000) THEN PROC up(%8)
+  IF %P <> $ffff THEN PROC checkTomb(): ; %P = $ffff if they haven't moved
+  ;
+  IF %y MOD 40 OR (y > $ff) THEN : ELSE : IF %j&@0010 THEN PROC left(%8): ELSE IF %j&@0001 THEN PROC right(%8)
+  ;
+  ; note that %x > $ff means the integer has gone from 0, to -1, but it's unsigned
+  ; so it'll be up in the 65K range, so this check against 255 is good enough
+  IF %x > $ff THEN : LET %x=0: ELSE IF %x > 240 THEN : LET %x=240
+  ;
+  IF %t=1 THEN IF %j&@1000 AND (y=0) AND (x=96) THEN PROC up(%8):%t=0: SPRITE 64,%x+32,%y+48,%s,%d: ENDPROC
+  IF %y=$FFF0 OR (y=$FFF8) THEN : ELSE : IF %y > $ff THEN : LET %y=0: ELSE IF %y > 160 THEN : LET %y=160
+  ;
+  IF %P <> $ffff THEN PROC checkTomb()
+  ;
+  SPRITE 64,%x+32,%y+48,%s,%d
+  ;
+  %i=% SPRITE OVER (64,1 TO c)*6
+  IF %i=0 THEN ENDPROC
+  IF %A[i+4]=0 THEN ENDPROC
+  %A[i+4]=0
+  %A[i+5]=0
+  IF %r=0 THEN PROC takeLife(): ELSE %r=0
+ENDPROC
+;
+DEFPROC checkTomb()
+  IF %(x MOD 48) OR (y MOD 40) THEN ENDPROC : ; only run on corners
+  LET %i=%(6*(y/40))+(x/48): ; x/y as aisle index (6 aisles for 5 rows of tombs)
+  IF %i=a THEN ENDPROC : ; we were just there (%a is last position)
+  IF %a=$ffff THEN %a=%i: ENDPROC
+  ;
+  %f=%i-a: ; f is forward +1 or backward -1
+  %k=% ABS SGN {f}=1: ; k tracks the axis, +1 for X, 0 for Y
+  ;
+  IF % SGN {f < 0} THEN %g=%a: ELSE %g=%i
+  IF %k THEN PROC getXTombs() TO %g,%h: ELSE PROC getYTombs() TO %g,%h
+  IF %g > 20 THEN %g=20: ; assign out of bounds to the junk element (index 20)
+  IF %h > 20 THEN %h=20
+  ; bitwise op below is $current wall & (0xF0 + wall, 1 top, 2 right, 4 bottom, 8 left)
+  ; importantly this leaves the first 4 bits untouched
+  IF %k THEN %T(g)=%T(g)&@11011111:%T(h)=%T(h)&@01111111: ELSE %T(g)=%T(g)&@10111111:%T(h)=%T(h)&@11101111
+  IF %T(g)&$f8=0 THEN PROC openTomb(%g): ; (value & 0xf8)==0 = all the walls are covered, and bit 4 (0x08) is _not_ set - then open the tomb
+  IF %T(h)&$f8=0 THEN PROC openTomb(%h)
+  ;
+  LET %a=%f+a: ; save the last position (because we lost %i)
+ENDPROC
+;
+DEFPROC getXTombs(): ; uses scoped %g var from checkTomb
+  %h=%1+(g/6)
+  %i=%g-h
+ENDPROC =%i-5,%i
+;
+DEFPROC getYTombs(): ; uses scoped %g var from checkTomb
+  %i=%g-6-(g/6)
+ENDPROC =%i,%i+1
+;
+DEFPROC openTomb(%i)
+  LOCAL %j
+  %j=%T(i)
+  IF %i=20 THEN ENDPROC
+  IF %j&8=8 THEN ENDPROC : ; Tomb is open, exit FIXME is this always false?
+  ;
+  LOCAL %y
+  %y=%(3*j)+3
+  TILE 4,3 AT 0,%y TO %2+((i MOD 5)*6),%4+((i/5)*5)
+  IF %j=1 OR (j=2) THEN %t=%t-1: ; pharos or key
+  IF %j=3 THEN %r=%1: ; scroll
+  %T(i)=%j+8: ; prevent the tomb from being reopened
+ENDPROC
+;
+; leave tread marks
+DEFPROC treadMark(): ;down=0,up=2,left=4,right=6
+  ; ON ERROR : ENDPROC : ; this happens at the end of a level
+  IF %P=$ffff THEN ENDPROC : ; didn't move
+  IF %P=4 THEN LET %i=%2: ELSE LET %i=%0: ; if left +1, right = -1
+  IF %P=2 THEN LET %j=%1: ELSE LET %j=%0
+  ;
+  IF %P > 3 THEN %k=%(x/8) MOD 2: ELSE %k=%(y/8) MOD 2:%i=%k:%j=%k
+  ;
+  %q=%y/8+j+2
+  IF %q > 8000 THEN %q=%q MOD 8192: ; handle when player is in start position
+  TILE 1,2 AT %P+k,0 TO %x/8+i,%q
+  %P=%$ffff: ; now we're not moving
+ENDPROC
+;
+; handle baddies
+;
+DEFPROC updateBaddie()
+  LET %j=%A[i+3]
+  IF %j=1 THEN PROC baddieD(): IF %A[i+1] MOD 40 THEN ENDPROC : ;down
+  IF %j=2 THEN PROC baddieU(): IF %A[i+1] MOD 40 THEN ENDPROC : ;up
+  IF %j=4 THEN PROC baddieL(): IF %A[i] MOD 48 THEN ENDPROC : ;left
+  IF %j=8 THEN PROC baddieR(): IF %A[i] MOD 48 THEN ENDPROC : ;right
+  ;
+  ; rotate 1:3 times - TODO eventually make this more "AI"
+  IF % RND 3=0 THEN LET %A[i+3]=%1 << RND 4: ;qaop/direction
+ENDPROC
+;
+DEFPROC checkBaddie(%a,%x,%y)
+  LOCAL %i: LOCAL %j
+  ON ERROR ENDPROC =%0: ; don't bother with out of bound checks, just exit
+  %f=% BANK e PEEK ((32*(y/8))+(x/8))
+
+  IF %f=0 OR (f=b) THEN ENDPROC =%0
+
+  %i=%a+3
+  %j=%(f*6)+3
+
+  IF %A[i] > 3 THEN %k=%@1100: ELSE %k=%@0011: ; > 3 = going left/right
+  %A[i]=%A[i]^k: ; reverse the baddie direction
+  ;
+  IF %A[j] > 3 THEN %k=%@1100: ELSE %k=%@0011: ; > 3 = going left/right
+  %A[j]=%A[j]^k: ; and do the same to the colliding baddie
+ENDPROC =%1
+;
+DEFPROC baddieD(): ; baddie down
+  PROC checkBaddie(%i,%A[i],%A[i+1]+z) TO %f
+
+  IF %f THEN ENDPROC
+  BANK %e POKE %(32*(A[i+1]/8))+(A[i]/8),%0
+  %A[i+1]=%A[i+1]+z
+
+  IF %A[i+1] > 160 THEN %A[i+1]=160: ; edge
+  %A[i+2]=47: ; sprite
+  %A[i+5]=%A[i+5]^@1000: ;set sprite to up, and flip bits
+  BANK %e POKE %(32*(A[i+1]/8))+(A[i]/8),%b
+ENDPROC
+;
+DEFPROC baddieU(): ; baddie up
+  PROC checkBaddie(%i,%A[i],%A[i+1]-z) TO %f
+
+  IF %f THEN ENDPROC
+  BANK %e POKE %(32*(A[i+1]/8))+(A[i]/8),%0
+  %A[i+1]=%A[i+1]-z
+
+  IF %A[i+1] > $ff THEN %A[i+1]=0
+  %A[i+2]=46
+  %A[i+5]=%A[i+5]^@1000: ;set sprite to up, and flip bits
+  BANK %e POKE %(32*(A[i+1]/8))+(A[i]/8),%b
+ENDPROC
+;
+DEFPROC baddieL(): ; baddie left
+  PROC checkBaddie(%i,%A[i]-z,%A[i+1]) TO %f
+  ;
+  IF %f THEN ENDPROC
+  BANK %e POKE %(32*(A[i+1]/8))+(A[i]/8),%0
+  %A[i]=%A[i]-z
+  IF %A[i] > $ff THEN %A[i]=0
+  ;
+  %A[i+2]=%A[i+2]+1: IF %A[i+2] > 45 THEN %A[i+2]=44: ;animate sprite
+  %A[i+5]=%A[i+5]&@0001: ; turn off all bits and leave bit 0 alone
+  BANK %e POKE %(32*(A[i+1]/8))+(A[i]/8),%b
+ENDPROC
+;
+DEFPROC baddieR(): ; baddie right
+  PROC checkBaddie(%i,%A[i]+z,%A[i+1]) TO %f
+  ;
+  IF %f THEN ENDPROC
+  BANK %e POKE %(32*(A[i+1]/8))+(A[i]/8),%0
+  %A[i]=%A[i]+z
+  IF %A[i] > 240 THEN %A[i]=240
+  ;
+  %A[i+2]=%A[i+2]+1: IF %A[i+2] > 45 THEN %A[i+2]=44: ;animate sprite
+  %A[i+5]=%(A[i+5]&1)+@1000: ; and flip bits %@1001
+  BANK %e POKE %(32*(A[i+1]/8))+(A[i]/8),%b
+ENDPROC
+;
+DEFPROC takeLife()
+  LET %l=%l-1
+  FOR %i=0 TO 2
+    SPRITE %55+i,%200+(i*16),%24,%48+(i MOD 2),%i < l: ; draw lives
+  NEXT %i
+ENDPROC
+;
+DEFPROC up(%z): ; move up
+  %P=2
+  %y=%y-z
+  %d=%d^@1000
+  %s=50
+ENDPROC
+;
+DEFPROC down(%z): ; move down
+  %P=0
+  %y=%y+z
+  %d=%d^@1000
+  %s=51
+ENDPROC
+;
+DEFPROC left(%z): ; move left
+  %P=4
+  %x=%x-z
+  %d=%@1001
+  %s=%s+1: IF %s > 49 THEN %s=48
+ENDPROC
+;
+DEFPROC right(%z): ; move right
+  %P=6
+  %x=%x+z
+  %d=%@0001
+  %s=%s+1: IF %s > 49 THEN %s=48
+ENDPROC
+;
+; init functions
+;
+DEFPROC initSprites()
+  LOAD S$+".map" BANK 14: ; load tile map created at https://zx.remysharp.com/sprites/
+  TILE 32,24: ; print tile for 16 tile cols by 12 tile rows
+  LOAD S$+".spr" BANK 16,0,4096
+  SPRITE BANK 13
+  SPRITE CLEAR : SPRITE PRINT 1: SPRITE BORDER 1
+  SPRITE STOP : ; switch to batching
+  ;
+  ; footfall marks
+  %j=0: ; =16 for old school
+  DATA 63,145,63,147,63,149,63,151
+  DATA 144,63,146,63,148,63,150,63
+  ; now we're going to push tiles into memory for feet
+  FOR %i=%0 TO %7: READ %j: BANK %14 POKE %i,%j: NEXT %i
+  FOR %i=%0 TO %7: READ %j: BANK %14 POKE %i+32,%j: NEXT %i
+  ;
+  ; tombopen @ y:3
+  DATA 11,11,11,11
+  DATA 11,11,11,11
+  DATA 11,11,11,11
+  ; Pharaoh @ y:6
+  DATA 64,65,68,69
+  DATA 66,67,70,71
+  DATA 80,81,84,85
+  ; key @ y:9
+  DATA 72,72,76,77
+  DATA 74,75,78,79
+  DATA 88,89,92,93
+  ; scroll @ y:12
+  DATA 96,97,100,101
+  DATA 98,99,102,103
+  DATA 112,113,116,117
+  ; chest @ y:15
+  DATA 104,105,108,109
+  DATA 106,107,110,111
+  DATA 120,121,124,125
+  ;
+  FOR %j=%3 TO %17
+    FOR %i=%0 TO %3
+      READ %k
+      BANK %14 POKE %i+(32*j),%k
+    NEXT %i
+  NEXT %j
+
+  RESTORE 10: ; reset the position of read for new games
+  PAPER 255: INK 0: BORDER 6: ;background black (6 = yellow), text white
+ENDPROC
+;
+DEFPROC xyToIndex(x,y)
+ENDPROC =(32*y)+x
+;
+DEFPROC gameOver()
+  INVERSE 1
+  PRINT AT 4,7;"                 "
+  PRINT AT 5,7;"                 "
+  PRINT AT 6,7;"    GAME OVER    "
+  PRINT AT 7,7;"                 "
+  PRINT AT 8,7;"                 "
+  INVERSE 0
+  REPEAT : REPEAT UNTIL INKEY$ ="s":
+  PROC initNewGame(): ; setup new game
+ENDPROC
+;
+; initBaddies: %A=Array[[x,y,spr,angle(0: x, 1: y),direction(0: backward, 1: forward),alive]] (allowing for more than 10 baddies)
+; note: i*j = j properties per baddie
+DEFPROC initBaddies()
+  BANK %e ERASE
+  LET %j=6: ;n props
+  FOR %i=1 TO %c: ;always have 9 baddie to update, to keep the rate constant
+    LET %A[i*j]=%16* RND 12: ; 0 = x
+    LET %A[(i*j)+1]=%80+( RND 2*40): ; 1 = y - baddies start on bottom 3 rungs
+    LET %A[(i*j)+2]=%44: ; 2 = SPRITE
+    LET %A[(i*j)+3]=%1 << ( RND 2+2): ;3 = qaop/direction
+    LET %A[(i*j)+4]=%$ff: ; 4 = alive (note to self: I changed this to 1 and baddie walked backwards)
+    LET %A[(i*j)+5]=1: ; 5 = sprite flags
+    BANK %e POKE %(32*(A[(i*j)+1]/8))+(A[i*j]/8),%i
+  NEXT %i
+ENDPROC
+;
+DEFPROC initTombs()
+  FOR %i=0 TO 20: ; note that index 20 is used for dumping invalid/out of bounds
+    LET %T(i)=%$f0: ; this is 11110000 - each edge is the high nibble and set as closed/waiting to be masked later
+  NEXT %i
+  PROC pickRandom()
+  ; generates: mummy, scroll, pharos, key
+  FOR %i=%1 TO %4
+    %T(W(i))=%T(W(i))+i
+  NEXT %i
+  %t=3
+ENDPROC
+;
+DEFPROC pickRandom()
+  LOCAL %n: LOCAL %p: LOCAL %t
+  %n=20: ; select from 0-20 (excluding 20)
+  %p=4: ; pick 4 numbers
+  %i=0
+  ; init the 0-N array
+  REPEAT
+    %S(i)=%i
+    %i=%i+1
+  REPEAT UNTIL %i=n
+  ; then go back downwards for P values
+  REPEAT
+    %t=% RND i
+    %W(n-i)=%S(t): ; W is our global (winning positions)
+    %i=%i-1
+    %S(t)=%S(i)
+  REPEAT UNTIL %i=(n-p)
+  ; pickings are in global array W
+ENDPROC
+;
+DEFPROC initOnce()
+  CLS
+  LAYER CLEAR
+  SPRITE CLEAR
+  ; LAYER OVER %@100
+  LAYER 2,1
+  LOAD S$+".spr" BANK 13: ; load spritesheet for tiles
+  TILE BANK 13: ; point tiles to spritesheet
+  TILE DIM 14,0,32,8: ; using tile bank 14, offset 0, tile 32 wide, tile size 8
+  %e=%15: ; game map bank
+  DIFFICULTY=4
+ENDPROC
+;
+DEFPROC initGameVars()
+  LET %x=96: LET %y=-16: LET %s=51: ; s= SPRITE + 4 for old skoool
+  LET %d=1: ; direction & speed
+  LET %P=%0: ; %P = last player position
+  LET %a=%$ffff
+  LET %r=%0: ; can player kill a mummy?
+ENDPROC
+;
+DEFPROC initNewGame()
+  ; define player and game state
+  LET %z=%2* INT {DIFFICULTY}: ; baddie speed
+  LET %c=1: ; global badie count
+  LET %l=3: ; lives
+  ;
+  PROC nextLevel(0)
+ENDPROC
+;
+DEFPROC nextLevel(l)
+  LEVEL=l+1
+  ; count how many baddies are left over, and carry them across
+  %q=%0
+  FOR %j=1 TO %c
+    IF %A[(j*6)+4]=$ff THEN %q=%q+1
+  NEXT %j
+  %c=%q+1
+
+  PROC initGameVars()
+  PROC initSprites()
+  PROC initBaddies()
+  PROC initTombs()
+  PROC treadMark()
+  %l=%l+1: ; stupid, but can't be bothered to add more code
+  PROC takeLife(): ; renders the lives
+ENDPROC
+;
+DEFPROC fps()
+  LET %g=% DPEEK 23672
+  LET %f=%g-h
+  LET %h=%g
+ENDPROC
+;
+DEFPROC cleanUp(e,l,s)
+  ON ERROR
+  BANK CLEAR %e
+  LAYER CLEAR
+  SPRITE CLEAR
+  CLS
+  BORDER 7
+  PRINT 0,0;"Error:";e;", ";l;":";s
+  PAUSE 0
+ENDPROC
+;
+;Quick save
+;
+CLEAR : LAYER CLEAR : SPRITE PRINT 0: SAVE "mummy.bas" LINE 0
