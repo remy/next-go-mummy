@@ -343,9 +343,6 @@ DEFPROC initSprites()
   PAPER 255: INK 0: BORDER 6: ;background black (6 = yellow), text white
 ENDPROC
 ;
-DEFPROC xyToIndex(x,y)
-ENDPROC =(32*y)+x
-;
 DEFPROC gameOver()
   INVERSE 1
   PRINT AT 4,7;"                 "
