@@ -3,7 +3,7 @@
 #autoline 10
 ; Oh Mummy (clone), Remy Sharp 2020
 ;
-RUN AT 3: REM 3.5Mhz (0 = 3.5, 1 = 7 (aim), 2 = 14 (likely))
+RUN AT 2: REM 3.5Mhz (0 = 3.5, 1 = 7 (aim), 2 = 14 (likely))
 LET S$="MUMMY-R"
 ;
 ; ************ TODO ***************
@@ -20,15 +20,16 @@ LET S$="MUMMY-R"
 ; ******** VARIABLE INDEX *********
 ;
 ; %a = player last corner, used for tomb calc - initilised to $FF
-; b = baddie index
-; A[] = baddie array (allows for > 64 elements)
+; %b = baddie index
+; %A[] = baddie array (allows for > 64 elements)
 ; %c = baddie count
 ; %d = player sprite flags (mirror, etc)
 ; %e = BANK that's used to track where the baddies are
+; %n = delta time counter (only used during dev, but needs to be reserved)
 ; %l = player lives
 ; %P = player last position, used for tread marks - initilised to $FFFF
 ; %q = bank array of map and objects on map
-; %r = <free>
+; %r = (flag) player has scroll and can kill a mummy
 ; %s = player sprite
 ; S$ = sprite filename prefix (mummy and mummy-r for retro)
 ; %T(21) = tomb array 0-19 with index 20 used for temp rendering, with 8bit flags
@@ -36,19 +37,20 @@ LET S$="MUMMY-R"
 ; %W(4) = array(4) of tombs with items behind theme
 ; %x = player x
 ; %y = player y
-; %z = sprite speed (for both player and baddie) - constant at 8
+; %z = sprite speed (for both baddie) - calculated based on DIFFICULTY
 ; --- non int vars ---
 ; DIFFICULTY = how fast/smart the mummy's are (currently not!)
 ; LEVEL = current level
 ;
 ; TMP VARIABLES
-; i, j, k - then - f, g, h, m, n, o, q
+; i, j, k - then - f, g, h, m, o, q
 ; **********************************
 ;
 RANDOMIZE %19: ; fixme - randomize off user interaction
 ; clean the screen on stop
 ;ON ERROR : ERROR TO er,lin,st: PROC cleanUp(er,lin,st)
 ;
+;PROC dT()
 PROC initOnce()
 PROC initNewGame()
 ; core loop
@@ -66,15 +68,11 @@ DEFPROC updateLoop()
   LET %b=1: ; baddie loop
   REPEAT
     %i=%b*6: ; 6 props (easy to mess this up!)
-    ;PROC updateBaddie():
-    ;   PRINT AT %b,0;% SPRITE CONTINUE b,% SPRITE AT (b,0),% SPRITE AT (b,1)
-    IF % SPRITE CONTINUE b < 2 THEN PROC updateBaddie(): ; SPRITE %b,%A[i]+32,%A[i+1]+48,%A[i+2],%A[i+5]&A[i+4]
-    ; note: updatePlayer overwrites %i ... sorry.
-    ;   IF %b MOD ((c+1)/2)=0 THEN SPRITE MOVE :
+    IF % SPRITE CONTINUE b < 2 THEN PROC updateBaddie(%A[(i*j)+2])
     LET %b=%b+1
   REPEAT UNTIL %b=(c+1)
   SPRITE MOVE INT
-  ; PROC fps(): PRINT AT 0,0;%f;"      ": ; f big = bad, small = good
+  ;PROC dT() TO %f: PRINT AT 0,0;%c;"@";%f;" ": ; f big = bad, small = good
 ENDPROC
 ;
 DEFPROC updatePlayer()
@@ -181,27 +179,35 @@ ENDPROC
 ;
 ; handle baddies
 ;
-DEFPROC updateBaddie()
+DEFPROC updateBaddie(%d)
+  ; if this baddie is dead, fast exit
   IF %A[i+4]=0 THEN ENDPROC
-  %j=% RND 12: ;select a random direction / qaop/direction
+
   %f=% SPRITE AT (b,0): ; x
   %g=% SPRITE AT (b,1): ; y
 
+  ; random 0-11 - 0-3 is valid, > 3 is don't change direction
+  %j=% RND 12
   IF %j > 3 THEN %j=%A[i+3]
 
-  IF %g=48 AND (j=1) THEN %j=0
+  ; if they're on the edge of the map, don't let them walk off
   IF %g=208 AND (j=0) THEN %j=1
-  IF %f=32 AND (j=2) THEN %j=3
-  IF %f=272 AND (j=3) THEN %j=2
+  IF %g=48 AND (j=1) THEN %j=0
+  IF %f=272 AND (j=2) THEN %j=3
+  IF %f=32 AND (j=3) THEN %j=2
 
+  ; save their direction
   %A[i+3]=%j
+  %A[(i*j)+2]=0
 
-  ; TODO add mirror flag when going left
+  ; Note: I don't make use of the sprite mirror flag, instead I'm storing all the permutations of the sprite
+  ; because I have room, and it means that I don't need an IF and subsequent SPRITE statement, i.e. the
+  ; fastest code is no code.
 
-  IF %j=0 THEN SPRITE CONTINUE %b, STOP ,%g TO %g+40 STEP %z RUN ,47, BIN 10 : ENDPROC : ; down
-  IF %j=1 THEN SPRITE CONTINUE %b, STOP ,%g-40 TO %g STEP % SGN {-z} RUN ,46, BIN 10 : ENDPROC : ; up
-  IF %j=2 THEN SPRITE CONTINUE %b,%f-48 TO %f STEP % SGN {-z} RUN , STOP ,44 TO 45, BIN 10 : ENDPROC : ; left
-  IF %j=3 THEN SPRITE CONTINUE %b,%f TO %f+48 STEP %z RUN , STOP ,44 TO 45, BIN 10 : ENDPROC : ; right
+  IF %j=0 THEN SPRITE CONTINUE %b, STOP ,%g TO %g+40 STEP %z RUN ,40 TO 41, BIN 10,0,%d: ENDPROC : ; down
+  IF %j=1 THEN SPRITE CONTINUE %b, STOP ,%g-40 TO %g STEP % SGN {-z} RUN ,42 TO 43, BIN 10,0,%d: ENDPROC : ; up
+  IF %j=2 THEN SPRITE CONTINUE %b,%f TO %f+48 STEP %z RUN , STOP ,44 TO 45, BIN 10,0,%d: ENDPROC : ; right
+  IF %j=3 THEN SPRITE CONTINUE %b,%f-48 TO %f STEP % SGN {-z} RUN , STOP ,46 TO 47, BIN 10,0,%d: ENDPROC : ; left
 ENDPROC
 ;
 DEFPROC takeLife()
@@ -309,12 +315,12 @@ DEFPROC initBaddies()
   FOR %i=1 TO %c: ;always have 9 baddie to update, to keep the rate constant
     LET %A[i*j]=%( RND 6)*48: ; 0 = x
     LET %A[(i*j)+1]=%40+( RND 4*40): ; 1 = y - baddies start on bottom 3 rungs
-    LET %A[(i*j)+2]=%44: ; 2 = SPRITE
+    LET %A[(i*j)+2]=%i: ; 2 = delay (used to be SPRITE)
     LET %A[(i*j)+3]=% RND 4: ;3 = qaop/direction
     LET %A[(i*j)+4]=%$ff: ; 4 = alive (note to self: I changed this to 1 and baddie walked backwards)
     LET %A[(i*j)+5]=1: ; 5 = sprite flags
     ;BANK %e POKE %(32*(A[(i*j)+1] >> 3))+(A[i*j] >> 3),%i
-    SPRITE %i,%A[i*j]+32,%A[(i*j)+1]+48,%A[(i*j)+2],1
+    SPRITE %i,%A[i*j]+32,%A[(i*j)+1]+48,44,1
   NEXT %i
 ENDPROC
 ;
@@ -332,21 +338,21 @@ ENDPROC
 ;
 DEFPROC pickRandom()
   LOCAL %n: LOCAL %p: LOCAL %t
-  %n=20: ; select from 0-20 (excluding 20)
+  %q=20: ; select from 0-20 (excluding 20)
   %p=4: ; pick 4 numbers
   %i=0
   ; init the 0-N array
   REPEAT
     %S(i)=%i
     %i=%i+1
-  REPEAT UNTIL %i=n
+  REPEAT UNTIL %i=q
   ; then go back downwards for P values
   REPEAT
     %t=% RND i
-    %W(n-i)=%S(t): ; W is our global (winning positions)
+    %W(q-i)=%S(t): ; W is our global (winning positions)
     %i=%i-1
     %S(t)=%S(i)
-  REPEAT UNTIL %i=(n-p)
+  REPEAT UNTIL %i=(q-p)
   ; pickings are in global array W
 ENDPROC
 ;
@@ -388,6 +394,9 @@ DEFPROC nextLevel(l)
   NEXT %j
   %c=%q+1
 
+  ; adjust the cpu speed depending on the baddie count
+  IF %c < 3 THEN RUN AT 1: ELSE IF %c < 4 THEN RUN AT 2: ELSE RUN AT 3
+
   PROC initGameVars()
   PROC initSprites()
   PROC initBaddies()
@@ -397,11 +406,12 @@ DEFPROC nextLevel(l)
   PROC takeLife(): ; renders the lives
 ENDPROC
 ;
-DEFPROC fps()
-  LET %g=% DPEEK 23672
-  LET %f=%g-h
-  LET %h=%g
-ENDPROC
+DEFPROC dT()
+  LET %g=% PEEK 23672
+  LET %f=%g-n
+  IF %g < n THEN LET %f=%f+256
+  LET %n=%g
+ENDPROC =%f
 ;
 DEFPROC cleanUp(e,l,s)
   ON ERROR
