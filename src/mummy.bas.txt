@@ -20,8 +20,8 @@ LET S$="MUMMY-R"
 ; ******** VARIABLE INDEX *********
 ;
 ; %a = player last corner, used for tomb calc - initilised to $FF
-; %b = baddie index
 ; %A[] = baddie array (allows for > 64 elements)
+; %b = baddie index
 ; %c = baddie count
 ; %d = player sprite flags (mirror, etc)
 ; %e = BANK that's used to track where the baddies are
@@ -64,7 +64,7 @@ REPEAT UNTIL 0: ; repeat forever
 ;
 ; start main game loop - we do only one thing at a time in the main loop
 DEFPROC updateLoop()
-  PROC updatePlayer()
+  PROC updatePlayer(%8)
   LET %b=1: ; baddie loop
   REPEAT
     %i=%b*6: ; 6 props (easy to mess this up!)
@@ -75,7 +75,7 @@ DEFPROC updateLoop()
   ;PROC dT() TO %f: PRINT AT 0,0;%c;"@";%f;" ": ; f big = bad, small = good
 ENDPROC
 ;
-DEFPROC updatePlayer()
+DEFPROC updatePlayer(%z)
   PROC treadMark(): ; put treadmarks on the place we're about to move away from
 
   LET %j= IN 31: ; check the joystick and then keys
@@ -89,16 +89,16 @@ DEFPROC updatePlayer()
   ; IF %j&$0f=0 THEN LET %P=%$ffff: ENDPROC : ; play isn't moving, early exit
 
   ; if I can't move on x plane, check y
-  IF %x MOD 48 THEN : ELSE : IF %j&@0100 THEN PROC down(%8): ELSE IF %y > 0 AND (j&@1000) THEN PROC up(%8)
+  IF %x MOD 48 THEN : ELSE : IF %j&@0100 THEN PROC down(%z): ELSE IF %y > 0 AND (j&@1000) THEN PROC up(%z)
   IF %P <> $ffff THEN PROC checkTomb(): ; %P = $ffff if they haven't moved
 
-  IF %y MOD 40 OR (y > $ff) THEN : ELSE : IF %j&@0010 THEN PROC left(%8): ELSE IF %j&@0001 THEN PROC right(%8)
+  IF %y MOD 40 OR (y > $ff) THEN : ELSE : IF %j&@0010 THEN PROC left(%z): ELSE IF %j&@0001 THEN PROC right(%z)
 
   ; note that %x > $ff means the integer has gone from 0, to -1, but it's unsigned
   ; so it'll be up in the 65K range, so this check against 255 is good enough
   IF %x > $ff THEN : LET %x=0: ELSE IF %x > 240 THEN : LET %x=240
 
-  IF %t=1 THEN IF %j&@1000 AND (y=0) AND (x=96) THEN PROC up(%8):%t=0: SPRITE 64,%x+32,%y+48,%s,%d: ENDPROC
+  IF %t=1 THEN IF %j&@1000 AND (y=0) AND (x=96) THEN PROC up(%z):%t=0: SPRITE 64,%x+32,%y+48,%s,%d: ENDPROC
   IF %y=$FFF0 OR (y=$FFF8) THEN : ELSE : IF %y > $ff THEN : LET %y=0: ELSE IF %y > 160 THEN : LET %y=160
 
   IF %P <> $ffff THEN PROC checkTomb()
@@ -395,7 +395,7 @@ DEFPROC nextLevel(l)
   %c=%q+1
 
   ; adjust the cpu speed depending on the baddie count
-  IF %c < 3 THEN RUN AT 1: ELSE IF %c < 4 THEN RUN AT 2: ELSE RUN AT 3
+  IF %c < 3 THEN RUN AT 2: ELSE IF %c < 4 THEN RUN AT 3: ELSE RUN AT 3
 
   PROC initGameVars()
   PROC initSprites()
