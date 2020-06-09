@@ -3,7 +3,7 @@
 #autoline 10
 ; Oh Mummy (clone), Remy Sharp 2020
 ;
-RUN AT 2: REM 3.5Mhz (0 = 3.5, 1 = 7 (aim), 2 = 14 (likely))
+RUN AT 3: REM 3.5Mhz (0 = 3.5, 1 = 7 (aim), 2 = 14 (likely))
 LET S$="MUMMY-R"
 ;
 ; ************ TODO ***************
@@ -28,7 +28,7 @@ LET S$="MUMMY-R"
 ; %n = delta time counter (only used during dev, but needs to be reserved)
 ; %l = player lives
 ; %P = player last position, used for tread marks - initilised to $FFFF
-; %q = bank array of map and objects on map
+; %q = player last direction (whilst movement is engaged)
 ; %r = (flag) player has scroll and can kill a mummy
 ; %s = player sprite
 ; S$ = sprite filename prefix (mummy and mummy-r for retro)
@@ -43,23 +43,24 @@ LET S$="MUMMY-R"
 ; LEVEL = current level
 ;
 ; TMP VARIABLES
-; i, j, k - then - f, g, h, m, o, q
+; i, j, k - then - f, g, h, m, o, q, u, v, w
 ; **********************************
 ;
-RANDOMIZE %19: ; fixme - randomize off user interaction
 ; clean the screen on stop
 ;ON ERROR : ERROR TO er,lin,st: PROC cleanUp(er,lin,st)
 ;
 ;PROC dT()
+PROC splash()
 PROC initOnce()
-PROC initNewGame()
+PROC welcome()
 ; core loop
 REPEAT
+  PROC initNewGame()
   REPEAT
     IF INKEY$ ="t" THEN %t=0: ; FIXME remove TESTING ONLY
     PROC updateLoop(): ; update logic and render
   REPEAT UNTIL %l=0 OR (t=0): ; until zero lives
-  IF %t=0 THEN PROC nextLevel(LEVEL): ELSE PROC gameOver()
+  IF %t=0 THEN PROC nextLevel(LEVEL): ELSE PROC gameOver(): PROC welcome()
 REPEAT UNTIL 0: ; repeat forever
 ;
 ; start main game loop - we do only one thing at a time in the main loop
@@ -68,7 +69,7 @@ DEFPROC updateLoop()
   LET %b=1: ; baddie loop
   REPEAT
     %i=%b*6: ; 6 props (easy to mess this up!)
-    IF % SPRITE CONTINUE b < 2 THEN PROC updateBaddie(%A[(i*j)+2])
+    IF % SPRITE CONTINUE b < 2 THEN PROC updateBaddie(%A[i+2])
     LET %b=%b+1
   REPEAT UNTIL %b=(c+1)
   SPRITE MOVE INT
@@ -80,17 +81,21 @@ DEFPROC updatePlayer(%z)
 
   LET %j= IN 31: ; check the joystick and then keys
 
-  IF %( IN $fbfe >> 0&1^1) THEN LET %j=%(j+@1000): ; Q
-  IF %( IN $fdfe >> 0&1^1) THEN LET %j=%(j+@0100): ; A
-  IF %( IN $dffe >> 1&1^1) THEN LET %j=%(j+@0010): ; O
-  IF %( IN $dffe >> 0&1^1) THEN LET %j=%(j+@0001): ; P
+  IF %( IN $fbfe >> 0&1^1) THEN LET %j=%j+@1000: ; Q
+  IF %( IN $fdfe >> 0&1^1) THEN LET %j=%j+@0100: ; A
+  IF %( IN $dffe >> 1&1^1) THEN LET %j=%j+@0010: ; O
+  IF %( IN $dffe >> 0&1^1) THEN LET %j=%j+@0001: ; P
+
+  %u=%x MOD 48=0
+  %v=%y MOD 40=0
 
   ; NOTE I no longer do an early exit - this keeps the game speed constant, otherwise the baddies speed up
   ; IF %j&$0f=0 THEN LET %P=%$ffff: ENDPROC : ; play isn't moving, early exit
 
   ; if I can't move on x plane, check y
   IF %x MOD 48 THEN : ELSE : IF %j&@0100 THEN PROC down(%z): ELSE IF %y > 0 AND (j&@1000) THEN PROC up(%z)
-  IF %P <> $ffff THEN PROC checkTomb(): ; %P = $ffff if they haven't moved
+  ; IF %P <> $ffff THEN
+  PROC checkTomb(): ; %P = $ffff if they haven't moved
 
   IF %y MOD 40 OR (y > $ff) THEN : ELSE : IF %j&@0010 THEN PROC left(%z): ELSE IF %j&@0001 THEN PROC right(%z)
 
@@ -101,7 +106,8 @@ DEFPROC updatePlayer(%z)
   IF %t=1 THEN IF %j&@1000 AND (y=0) AND (x=96) THEN PROC up(%z):%t=0: SPRITE 64,%x+32,%y+48,%s,%d: ENDPROC
   IF %y=$FFF0 OR (y=$FFF8) THEN : ELSE : IF %y > $ff THEN : LET %y=0: ELSE IF %y > 160 THEN : LET %y=160
 
-  IF %P <> $ffff THEN PROC checkTomb()
+  ; IF %P <> $ffff THEN
+  PROC checkTomb()
 
   SPRITE 64,%x+32,%y+48,%s,%d
 
@@ -116,10 +122,10 @@ DEFPROC updatePlayer(%z)
 ENDPROC
 ;
 DEFPROC checkTomb()
-  IF %(x MOD 48) OR (y MOD 40) THEN ENDPROC : ; only run on corners
+  IF %(x MOD 48) OR (y MOD 40) THEN PAUSE 1: ENDPROC : ; only run on corners
   LET %i=%(6*(y/40))+(x/48): ; x/y as aisle index (6 aisles for 5 rows of tombs)
-  IF %i=a THEN ENDPROC : ; we were just there (%a is last position)
-  IF %a=$ffff THEN %a=%i: ENDPROC
+  IF %i=a THEN PAUSE 1: ENDPROC : ; we were just there (%a is last position)
+  IF %a=$ffff THEN %a=%i: PAUSE 1: ENDPROC
 
   %f=%i-a: ; f is forward +1 or backward -1
   %k=% ABS SGN {f}=1: ; k tracks the axis, +1 for X, 0 for Y
@@ -171,9 +177,9 @@ DEFPROC treadMark(): ;down=0,up=2,left=4,right=6
   ;
   IF %P > 3 THEN %k=%(x >> 3) MOD 2: ELSE %k=%(y >> 3) MOD 2:%i=%k:%j=%k
   ;
-  %q=%y >> 3+j+2
-  IF %q > 8000 THEN %q=%q MOD 8192: ; handle when player is in start position
-  TILE 1,2 AT %P+k,0 TO %x >> 3+i,%q
+  %v=%y >> 3+j+2
+  IF %v > 8000 THEN %v=%v MOD 8192: ; handle when player is in start position
+  TILE 1,2 AT %P+k,0 TO %x >> 3+i,%v
   %P=%$ffff: ; now we're not moving
 ENDPROC
 ;
@@ -191,10 +197,10 @@ DEFPROC updateBaddie(%d)
   IF %j > 3 THEN %j=%A[i+3]
 
   ; if they're on the edge of the map, don't let them walk off
-  IF %g=208 AND (j=0) THEN %j=1
-  IF %g=48 AND (j=1) THEN %j=0
-  IF %f=272 AND (j=2) THEN %j=3
-  IF %f=32 AND (j=3) THEN %j=2
+  IF %g=208 THEN IF %j=0 THEN %j=1
+  IF %g=48 THEN IF %j=1 THEN %j=0
+  IF %f=272 THEN IF %j=2 THEN %j=3
+  IF %f=32 THEN IF %j=3 THEN %j=2
 
   ; save their direction
   %A[i+3]=%j
@@ -248,7 +254,8 @@ ENDPROC
 ; init functions
 ;
 DEFPROC initSprites()
-  LAYER CLEAR : SPRITE CLEAR : SPRITE PRINT 1: LAYER 2,1: CLS : SPRITE BORDER 1
+  SPRITE CLEAR : LAYER 2,1: CLS : SPRITE BORDER 1: SPRITE PRINT 1
+  TILE DIM 14,0,32,8: ; using tile bank 14, offset 0, tile 32 wide, tile size 8
   LOAD S$+".map" BANK 14: ; load tile map created at https://zx.remysharp.com/sprites/
   TILE 32,24: ; print tile for 16 tile cols by 12 tile rows
   LOAD S$+".spr" BANK 16,0,4096
@@ -256,7 +263,6 @@ DEFPROC initSprites()
   ; SPRITE STOP : ; switch to batching
   ;
   ; footfall marks
-  %j=0: ; =16 for old school
   DATA 63,145,63,147,63,149,63,151
   DATA 144,63,146,63,148,63,150,63
   ; now we're going to push tiles into memory for feet
@@ -338,21 +344,21 @@ ENDPROC
 ;
 DEFPROC pickRandom()
   LOCAL %n: LOCAL %p: LOCAL %t
-  %q=20: ; select from 0-20 (excluding 20)
+  %v=20: ; select from 0-20 (excluding 20)
   %p=4: ; pick 4 numbers
   %i=0
   ; init the 0-N array
   REPEAT
     %S(i)=%i
     %i=%i+1
-  REPEAT UNTIL %i=q
+  REPEAT UNTIL %i=v
   ; then go back downwards for P values
   REPEAT
     %t=% RND i
-    %W(q-i)=%S(t): ; W is our global (winning positions)
+    %W(v-i)=%S(t): ; W is our global (winning positions)
     %i=%i-1
     %S(t)=%S(i)
-  REPEAT UNTIL %i=(q-p)
+  REPEAT UNTIL %i=(v-p)
   ; pickings are in global array W
 ENDPROC
 ;
@@ -363,9 +369,9 @@ DEFPROC initOnce()
   LAYER 2,1
   LOAD S$+".spr" BANK 13: ; load spritesheet for tiles
   TILE BANK 13: ; point tiles to spritesheet
-  TILE DIM 14,0,32,8: ; using tile bank 14, offset 0, tile 32 wide, tile size 8
   %e=%15: ; game map bank
   DIFFICULTY=4
+  RANDOMIZE % PEEK 23672
 ENDPROC
 ;
 DEFPROC initGameVars()
@@ -388,14 +394,14 @@ ENDPROC
 DEFPROC nextLevel(l)
   LEVEL=l+1
   ; count how many baddies are left over, and carry them across
-  %q=%0
+  %v=%0
   FOR %j=1 TO %c
-    IF %A[(j*6)+4]=$ff THEN %q=%q+1
+    IF %A[(j*6)+4]=$ff THEN %v=%v+1
   NEXT %j
-  %c=%q+1
+  %c=%v+1
 
   ; adjust the cpu speed depending on the baddie count
-  IF %c < 3 THEN RUN AT 2: ELSE IF %c < 4 THEN RUN AT 3: ELSE RUN AT 3
+  ; IF %c < 3 THEN RUN AT 2: ELSE IF %c < 4 THEN RUN AT 3: ELSE RUN AT 3
 
   PROC initGameVars()
   PROC initSprites()
@@ -423,6 +429,25 @@ DEFPROC cleanUp(e,l,s)
   PRINT 0,0;"Error:";e;", ";l;":";s
   PAUSE 0
 ENDPROC
+;
+DEFPROC splash()
+  LAYER 2,1: CLS
+  .bmpload welcome.bmp
+  PAUSE 0
+  LAYER CLEAR : PALETTE CLEAR
+ENDPROC
+;
+DEFPROC welcome()
+  TILE DIM 14,0,32,8: ; using tile bank 14, offset 0, tile 32 wide, tile size 8
+  LOAD "welcome.map" BANK 14: ; load tile map created at https://zx.remysharp.com/sprites/
+  TILE 32,24: ; print tile for 16 tile cols by 12 tile rows
+  PAPER 0: INK 180: BORDER 6: ;background black (6 = yellow), text white
+
+  PRINT AT 15,9;"Press any key"
+  PAUSE 0
+
+ENDPROC
+
 ;
 ;Quick save
 ;
