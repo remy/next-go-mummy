@@ -7,11 +7,13 @@ RUN AT 3: REM 3.5Mhz (0 = 3.5, 1 = 7 (aim), 2 = 14 (likely))
 LET S$="MUMMY-R"
 ;
 ; ************ TODO ***************
-; - [ ] AI for baddie & dumb baddies
 ; - [ ] Fix tomb 9 affecting tomb 10
-; - [ ] Fix treasure always at tomb 0
-; - [ ] Welcome screen / start game
-; - [ ] Score
+; - [ ] Fix the top left corner foot steps
+; - [ ] Bug tomb 0
+; - [ ] AI for baddie & dumb baddies
+; - [~] Welcome screen / start game
+; - [x] Score
+; - [x] 10 treasure chests
 ; - [x] Open tomb effect (spr@8-11 + 12 transparency)
 ; - [x] Level up
 ; - [x] Graphics for prize tombs
@@ -32,9 +34,9 @@ LET S$="MUMMY-R"
 ; %r = (flag) player has scroll and can kill a mummy
 ; %s = player sprite
 ; S$ = sprite filename prefix (mummy and mummy-r for retro)
-; %T(21) = tomb array 0-19 with index 20 used for temp rendering, with 8bit flags
+; %T(21) = tomb array 0-19 with index 20 used for temp rendering, with 8bit flags (14 items contain data in the low bit)
 ; %t = items to find - defaults to 2
-; %W(4) = array(4) of tombs with items behind theme
+; %w = score
 ; %x = player x
 ; %y = player y
 ; %z = sprite speed (for both baddie) - calculated based on DIFFICULTY
@@ -43,7 +45,7 @@ LET S$="MUMMY-R"
 ; LEVEL = current level
 ;
 ; TMP VARIABLES
-; i, j, k - then - f, g, h, m, o, q, u, v, w
+; i, j, k - then - f, g, h, m, o, q, u, v
 ; **********************************
 ;
 ; clean the screen on stop
@@ -52,15 +54,14 @@ LET S$="MUMMY-R"
 ;PROC dT()
 PROC splash()
 PROC initOnce()
-PROC welcome()
+PROC initNewGame()
 ; core loop
 REPEAT
-  PROC initNewGame()
   REPEAT
     IF INKEY$ ="t" THEN %t=0: ; FIXME remove TESTING ONLY
     PROC updateLoop(): ; update logic and render
   REPEAT UNTIL %l=0 OR (t=0): ; until zero lives
-  IF %t=0 THEN PROC nextLevel(LEVEL): ELSE PROC gameOver(): PROC welcome()
+  IF %t=0 THEN PROC nextLevel(LEVEL): ELSE PROC gameOver(): PROC initNewGame()
 REPEAT UNTIL 0: ; repeat forever
 ;
 ; start main game loop - we do only one thing at a time in the main loop
@@ -85,9 +86,6 @@ DEFPROC updatePlayer(%z)
   IF %( IN $fdfe >> 0&1^1) THEN LET %j=%j+@0100: ; A
   IF %( IN $dffe >> 1&1^1) THEN LET %j=%j+@0010: ; O
   IF %( IN $dffe >> 0&1^1) THEN LET %j=%j+@0001: ; P
-
-  %u=%x MOD 48=0
-  %v=%y MOD 40=0
 
   ; NOTE I no longer do an early exit - this keeps the game speed constant, otherwise the baddies speed up
   ; IF %j&$0f=0 THEN LET %P=%$ffff: ENDPROC : ; play isn't moving, early exit
@@ -163,9 +161,11 @@ DEFPROC openTomb(%i)
   ; I can't remember why this line ends with 4+i*5/5, but I did work it out
   ; and when I just do %4+i the tile drawing messes up, where as this is fine...
   TILE 4,3 AT 0,%y TO %2+((i MOD 5)*6),%4+((i/5)*5)
-  IF %j=1 OR (j=2) THEN %t=%t-1: ; pharos or key
-  IF %j=3 THEN %r=%1: ; scroll
+  ; pharoh, key, scroll or treasure (in that order) (currently missing new mummy/guardian)
+  IF %j=1 THEN %t=%t-1:%w=%w+50: ELSE IF %j=2 THEN %t=%t-1: ELSE IF %j=3 THEN %r=%1: ELSE IF %j=5 THEN %w=%w+5
+  IF %t=0 THEN PAUSE 0
   %T(i)=%j+8: ; prevent the tomb from being reopened
+  PROC printScore()
 ENDPROC
 ;
 ; leave tread marks
@@ -251,6 +251,17 @@ DEFPROC right(%z): ; move right
   %s=%s+1: IF %s > 49 THEN %s=48
 ENDPROC
 ;
+DEFPROC pad(%w)
+  IF %w < 10 THEN ENDPROC ="000"
+  IF %w < 100 THEN ENDPROC ="00"
+  IF %w < 1000 THEN ENDPROC ="0"
+ENDPROC =""
+;
+DEFPROC printScore()
+  IF %w < 1001 THEN PROC pad(%w) TO w$
+  PRINT AT 0,0;"Score ";w$;%w
+ENDPROC
+;
 ; init functions
 ;
 DEFPROC initSprites()
@@ -269,28 +280,32 @@ DEFPROC initSprites()
   FOR %i=%0 TO %7: READ %j: BANK %14 POKE %i,%j: NEXT %i
   FOR %i=%0 TO %7: READ %j: BANK %14 POKE %i+32,%j: NEXT %i
   ;
-  ; tombopen @ y:3
+  ; tombopen/empty @ y:3
   DATA 11,11,11,11
   DATA 11,11,11,11
   DATA 11,11,11,11
-  ; Pharaoh @ y:6
+  ; Pharaoh @ y:6 (openTomb, %j=1)
   DATA 64,65,68,69
   DATA 66,67,70,71
   DATA 80,81,84,85
-  ; key @ y:9
+  ; key @ y:9 (openTomb, %j=2)
   DATA 72,72,76,77
   DATA 74,75,78,79
   DATA 88,89,92,93
-  ; scroll @ y:12
+  ; scroll @ y:12 (openTomb, %j=3)
   DATA 96,97,100,101
   DATA 98,99,102,103
   DATA 112,113,116,117
-  ; chest @ y:15
+  ; mummy @ y:15 (openTomb, %j=4)
+  DATA 62,62,62,62
+  DATA 62,62,63,63
+  DATA 62,62,63,63
+  ; chest @ y:18 (openTomb, %j=5)
   DATA 104,105,108,109
   DATA 106,107,110,111
   DATA 120,121,124,125
 
-  FOR %j=%3 TO %17
+  FOR %j=%3 TO %20
     FOR %i=%0 TO %3
       READ %k
       BANK %14 POKE %i+(j << 5),%k
@@ -298,17 +313,33 @@ DEFPROC initSprites()
   NEXT %j
 
   RESTORE 10: ; reset the position of read for new games
-  PAPER 255: INK 0: BORDER 6: ;background black (6 = yellow), text white
+  PAPER 0: INK 236: BORDER 6: ;background black (6 = yellow), text white
 ENDPROC
 ;
 DEFPROC gameOver()
-  INVERSE 1
-  PRINT AT 4,7;"                 "
-  PRINT AT 5,7;"                 "
-  PRINT AT 6,7;"    GAME OVER    "
+  PAPER 0: INK 255
+  ; cheap black out
   PRINT AT 7,7;"                 "
   PRINT AT 8,7;"                 "
-  INVERSE 0
+  PRINT AT 9,7;"                 "
+  PRINT AT 10,7;"                 "
+  PRINT AT 11,7;"                 "
+  PRINT AT 12,7;"                 "
+  PRINT AT 13,7;"                 "
+  PRINT AT 14,7;"                 "
+  PRINT AT 15,7;"                 "
+  PRINT AT 16,7;"                 "
+  PAUSE 20
+  PRINT AT 12,8;"G": PAUSE 20
+  PRINT AT 12,10;"A": PAUSE 20
+  PRINT AT 12,12;"M": PAUSE 20
+  PRINT AT 12,14;"E": PAUSE 20
+  PRINT AT 12,17;"O": PAUSE 20
+  PRINT AT 12,19;"V": PAUSE 20
+  PRINT AT 12,21;"E": PAUSE 20
+  PRINT AT 12,23;"R": PAUSE 20
+  INK 224
+  PRINT AT 15,7;"     you ded      "
   REPEAT : REPEAT UNTIL INKEY$ ="s":
   PROC initNewGame(): ; setup new game
 ENDPROC
@@ -335,17 +366,20 @@ DEFPROC initTombs()
     LET %T(i)=%$f0: ; this is 11110000 - each edge is the high nibble and set as closed/waiting to be masked later
   NEXT %i
   PROC pickRandom()
-  ; generates: treasure, scroll, pharos, key (TODO: new mummy)
-  FOR %i=%1 TO %4
-    %T(W(i))=%T(W(i))+i
+  ; generates: scroll, pharos, key, new mummy
+  FOR %i=%0 TO %3
+    %T(W(i))=%T(W(i))+(i+1)
   NEXT %i
-  %t=3
+  ; treasures x 10
+  FOR %i=%4 TO %13
+    %T(W(i))=%T(W(i))+5
+  NEXT %i
 ENDPROC
 ;
 DEFPROC pickRandom()
   LOCAL %n: LOCAL %p: LOCAL %t
   %v=20: ; select from 0-20 (excluding 20)
-  %p=4: ; pick 4 numbers
+  %p=14: ; pick 4 numbers
   %i=0
   ; init the 0-N array
   REPEAT
@@ -362,6 +396,13 @@ DEFPROC pickRandom()
   ; pickings are in global array W
 ENDPROC
 ;
+DEFPROC loadFont()
+  LOAD "font.bin" CODE 64000
+  DPOKE 23606,63744: ; 64000-256
+  LAYER 2,1
+  PRINT CHR$ 2: ; trigger the font to be loaded
+ENDPROC
+;
 DEFPROC initOnce()
   CLS
   LAYER CLEAR
@@ -372,6 +413,7 @@ DEFPROC initOnce()
   %e=%15: ; game map bank
   DIFFICULTY=4
   RANDOMIZE % PEEK 23672
+  PROC loadFont()
 ENDPROC
 ;
 DEFPROC initGameVars()
@@ -380,13 +422,16 @@ DEFPROC initGameVars()
   LET %P=%0: ; %P = last player position
   LET %a=%$ffff
   LET %r=%0: ; can player kill a mummy?
+  LET %t=%3
 ENDPROC
 ;
 DEFPROC initNewGame()
+  %w=0: ; score
   ; define player and game state
   LET %z=%2* INT {DIFFICULTY}: ; baddie speed
   LET %c=1: ; global badie count
   LET %l=3: ; lives
+  PROC welcome()
   ;
   PROC nextLevel(0)
 ENDPROC
@@ -403,13 +448,14 @@ DEFPROC nextLevel(l)
   ; adjust the cpu speed depending on the baddie count
   ; IF %c < 3 THEN RUN AT 2: ELSE IF %c < 4 THEN RUN AT 3: ELSE RUN AT 3
 
-  PROC initGameVars()
   PROC initSprites()
   PROC initBaddies()
   PROC initTombs()
-  PROC treadMark()
+  PROC initGameVars()
+  PROC treadMark(): ; depends on player position
   %l=%l+1: ; stupid, but can't be bothered to add more code
   PROC takeLife(): ; renders the lives
+  PROC printScore()
 ENDPROC
 ;
 DEFPROC dT()
