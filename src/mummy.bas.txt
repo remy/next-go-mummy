@@ -4,7 +4,7 @@
 ; Oh Mummy (clone), Remy Sharp 2020
 ;
 RUN AT 3: REM 3.5Mhz (0 = 3.5, 1 = 7 (aim), 2 = 14 (likely))
-LET S$="MUMMY-R"
+LET S$="MUMMY"
 ;
 ; ************ TODO ***************
 ; - [ ] Fix tomb 9 affecting tomb 10
@@ -52,7 +52,7 @@ LET S$="MUMMY-R"
 ;ON ERROR : ERROR TO er,lin,st: PROC cleanUp(er,lin,st)
 ;
 ;PROC dT()
-PROC splash()
+;PROC splash()
 PROC initOnce()
 PROC initNewGame()
 ; core loop
@@ -271,7 +271,7 @@ DEFPROC initSprites()
   TILE 32,24: ; print tile for 16 tile cols by 12 tile rows
   LOAD S$+".spr" BANK 16,0,4096
   SPRITE BANK 13
-  ; SPRITE STOP : ; switch to batching
+  SPRITE STOP : ; switch to batching (though pretty sure this isn't required)
   ;
   ; footfall marks
   DATA 63,145,63,147,63,149,63,151
@@ -289,7 +289,7 @@ DEFPROC initSprites()
   DATA 66,67,70,71
   DATA 80,81,84,85
   ; key @ y:9 (openTomb, %j=2)
-  DATA 72,72,76,77
+  DATA 72,73,76,77
   DATA 74,75,78,79
   DATA 88,89,92,93
   ; scroll @ y:12 (openTomb, %j=3)
@@ -413,7 +413,6 @@ DEFPROC initOnce()
   %e=%15: ; game map bank
   DIFFICULTY=4
   RANDOMIZE % PEEK 23672
-  PROC loadFont()
 ENDPROC
 ;
 DEFPROC initGameVars()
@@ -484,13 +483,49 @@ DEFPROC splash()
 ENDPROC
 ;
 DEFPROC welcome()
-  TILE DIM 14,0,32,8: ; using tile bank 14, offset 0, tile 32 wide, tile size 8
-  LOAD "welcome.map" BANK 14: ; load tile map created at https://zx.remysharp.com/sprites/
-  TILE 32,24: ; print tile for 16 tile cols by 12 tile rows
-  PAPER 0: INK 180: BORDER 6: ;background black (6 = yellow), text white
+  ; TILE DIM 14,0,32,8: ; using tile bank 14, offset 0, tile 32 wide, tile size 8
+  ; LOAD "welcome.map" BANK 14: ; load tile map created at https://zx.remysharp.com/sprites/
+  ; TILE 32,24: ; print tile for 16 tile cols by 12 tile rows
+  .bmpload tokens.bmp
+  PAPER 207: INK 0: BORDER 0: ;207 is random and configured by the .bmpload :le-sigh:
 
-  PRINT AT 15,9;"Press any key"
-  PAUSE 0
+  PROC loadFont()
+  LET %y=11
+  PRINT AT %y-6,2;"Rescue the original 1984"
+  PRINT AT %y-5,2;"archaeologists from their";
+  PRINT AT %y-4,2;"failed plunder. Navigate five"
+  PRINT AT %y-3,2;"tombs, avoid the guardians"
+  PRINT AT %y-2,2;"and rescue those muppets."
+
+  PRINT AT %y,6;"Collect the map"
+  PRINT AT %y+2,6;"Use the key to escape"
+  PRINT AT %y+4,6;"Gems means points"
+  PRINT AT %y+6,6;"Vanquish a guardian"
+;
+; FOR i=0 TO 255
+;   PRINT PAPER i;i
+; NEXT i
+
+  PAPER 0: INK 207
+  PRINT AT %y+8,5;" Use QAOP or Kempton "
+  PRINT AT %y+9,5;"   any key to start  "
+  LOAD S$+".spr" BANK 16,0,4096
+  SPRITE BORDER 0
+  SPRITE BANK 13
+  SPRITE STOP : ; switch to batching (though pretty sure this isn't required)
+
+  ; SPRITE 64,200,200,48,1
+  LET %x=304: LET %y=208
+  SPRITE 64,%x,%y,48,%@1001
+  SPRITE 63,%x,%y,46,1
+  ; SPRITE CONTINUE 64,200 TO 20 STEP % SGN {-4} RUN , STOP ,48 TO 49, BIN 00101011,0,0
+  SPRITE CONTINUE 64,0 TO %x STEP -8 RUN , STOP ,48 TO 49, BIN 0001000,3,200
+  SPRITE CONTINUE 63,0 TO %x STEP -8 RUN , STOP ,46 TO 47, BIN 0001000,3,225
+
+  REPEAT
+    SPRITE MOVE INT
+  REPEAT UNTIL INKEY$ <> ""
+  LAYER CLEAR : PALETTE CLEAR
 
 ENDPROC
 
