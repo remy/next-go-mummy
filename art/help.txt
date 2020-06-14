@@ -1,0 +1,33 @@
+SCENARIO========
+
+You are in charge of a party of archaeologists, ordered to Egypt by the British Museum to explore ancient tombs.
+
+All the tombs have five levels. Each level contains:- treasure, a scroll, a key, a mummy of the royal family, and two guardians.
+
+One of these guardians, will be awakened by your entry, and will chase your party seeking revenge for your sacrilege.
+
+SCENARIO========
+
+The second buried guardian will only come to life, should you be unlucky enough to uncover it.
+
+You do however have one defence against the guardians, the magic scroll hidden on each level.
+
+If you have uncovered the magic scroll, you will be able to kill one guardian when attacked. Each scroll will only work once, also it can only be used on the level on which it was found.
+
+SCENARIO========
+
+When you have collected 5 royal mummies, a report is printed and you will be rewarded in some way for your efforts.
+
+You will then move into another tomb, in which the guardians are more cunning than those before.
+
+You guide your party around the levels of a tomb, using the four movement control keys.
+
+You will only be allowed out of an exit when you have found both the key and the royal mummy.ÿ
+
+SCENARIO========
+
+To uncover a square, guide your party around all four sides that make that square. Each side will be filled in when you have moved along it's length.
+
+When you have travelled all the way round, you will be shown the contents of that square.
+
+If you do manage to get through the exit, all remaining guardians will follow you through the exit onto the next level.
