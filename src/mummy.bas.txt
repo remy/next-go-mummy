@@ -4,6 +4,7 @@
 ; Oh Mummy (clone), Remy Sharp 2020
 ;
 RUN AT 3: REM 3.5Mhz (0 = 3.5, 1 = 7 (aim), 2 = 14 (likely))
+BORDER 0
 LET S$="MUMMY"
 ;
 ; ************ TODO ***************
@@ -281,9 +282,9 @@ DEFPROC initSprites()
   FOR %i=%0 TO %7: READ %j: BANK %14 POKE %i+32,%j: NEXT %i
   ;
   ; tombopen/empty @ y:3
-  DATA 11,11,11,11
-  DATA 11,11,11,11
-  DATA 11,11,11,11
+  DATA 28,29,29,25
+  DATA 20,45,45,21
+  DATA 26,22,22,27
   ; Pharaoh @ y:6 (openTomb, %j=1)
   DATA 64,65,68,69
   DATA 66,67,70,71
@@ -370,8 +371,8 @@ DEFPROC initTombs()
   FOR %i=%0 TO %3
     %T(W(i))=%T(W(i))+(i+1)
   NEXT %i
-  ; treasures x 10
-  FOR %i=%4 TO %13
+  ; treasures x 5
+  FOR %i=%4 TO %9
     %T(W(i))=%T(W(i))+5
   NEXT %i
 ENDPROC
@@ -412,7 +413,8 @@ DEFPROC initOnce()
   TILE BANK 13: ; point tiles to spritesheet
   %e=%15: ; game map bank
   DIFFICULTY=4
-  RANDOMIZE % PEEK 23672
+  POKE 23658,0: ; turn off CAPS LOCK
+  PROC loadFont()
 ENDPROC
 ;
 DEFPROC initGameVars()
@@ -425,6 +427,7 @@ DEFPROC initGameVars()
 ENDPROC
 ;
 DEFPROC initNewGame()
+RANDOMIZE % PEEK 23672: ; re-randomise - not sure this is totally worthwhile
   %w=0: ; score
   ; define player and game state
   LET %z=%2* INT {DIFFICULTY}: ; baddie speed
@@ -464,17 +467,6 @@ DEFPROC dT()
   LET %n=%g
 ENDPROC =%f
 ;
-DEFPROC cleanUp(e,l,s)
-  ON ERROR
-  BANK CLEAR %e
-  LAYER CLEAR
-  SPRITE CLEAR
-  CLS
-  BORDER 7
-  PRINT 0,0;"Error:";e;", ";l;":";s
-  PAUSE 0
-ENDPROC
-;
 DEFPROC splash()
   LAYER 2,1: CLS
   .bmpload welcome.bmp
@@ -482,54 +474,101 @@ DEFPROC splash()
   LAYER CLEAR : PALETTE CLEAR
 ENDPROC
 ;
-DEFPROC welcome()
-  ; TILE DIM 14,0,32,8: ; using tile bank 14, offset 0, tile 32 wide, tile size 8
-  ; LOAD "welcome.map" BANK 14: ; load tile map created at https://zx.remysharp.com/sprites/
-  ; TILE 32,24: ; print tile for 16 tile cols by 12 tile rows
-  .bmpload tokens.bmp
-  PAPER 207: INK 0: BORDER 0: ;207 is random and configured by the .bmpload :le-sigh:
+DEFPROC helpScreen()
+  .bmpload blank.bmp
+  BORDER 0
+  PAPER 207: INK 0: ;207 is random and configured by the .bmpload :le-sigh:
 
-  PROC loadFont()
-  LET %y=11
-  PRINT AT %y-6,2;"Rescue the original 1984"
-  PRINT AT %y-5,2;"archaeologists from their";
-  PRINT AT %y-4,2;"failed plunder. Navigate five"
-  PRINT AT %y-3,2;"tombs, avoid the guardians"
-  PRINT AT %y-2,2;"and rescue those muppets."
+  LET %y=7
 
-  PRINT AT %y,6;"Collect the map"
-  PRINT AT %y+2,6;"Use the key to escape"
-  PRINT AT %y+4,6;"Gems means points"
-  PRINT AT %y+6,6;"Vanquish a guardian"
-;
-; FOR i=0 TO 255
-;   PRINT PAPER i;i
-; NEXT i
+  PRINT AT %y,1;"Rescue the original 1984"
+  PRINT AT %y+1,1;"archaeologist party from their";
+  PRINT AT %y+2,1;"failed pyramid plundering."
+  PRINT AT %y+4,1;"Navigate five tombs, avoiding"
+  PRINT AT %y+5,1;"the guardians, rescue those"
+  PRINT AT %y+6,1;"muppets and bring them"
+  PRINT AT %y+7,1;"back to Blighty."
 
   PAPER 0: INK 207
-  PRINT AT %y+8,5;" Use QAOP or Kempton "
-  PRINT AT %y+9,5;"   any key to start  "
+  PRINT AT %y+13,19;" Continue..."
+  PAPER 207: INK 0
+
+  REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
+
+  .bmpload tokens.bmp
+  PRINT AT %y+1,6;"Rescue this dude"
+  PRINT AT %y+4,6;"Key to escape the tomb"
+  PRINT AT %y+7,6;"Gems means points"
+  PRINT AT %y+10,6;"Vanquish a guardian"
+
+  PAPER 0: INK 207
+  PRINT AT %y+13,19;" Continue..."
+  PAPER 207: INK 0
+
+  REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
+
+  .bmpload blank.bmp
+  BORDER 0
+  PAPER 207: INK 0: ;207 is random and configured by the .bmpload :le-sigh:
+
+  LET %y=7
+
+  PRINT AT %y,2;"Controls"
+  PRINT AT %y+2,2;"Kempton joystick and keyboard";
+  PRINT AT %y+4,2;"Q= up"
+  PRINT AT %y+5,2;"A= down"
+  PRINT AT %y+6,2;"O= up"
+  PRINT AT %y+7,2;"P= right"
+
+  PRINT AT %y+9,2;"Surround a tomb to reveal the"
+  PRINT AT %y+10,2;"contents. Oh, don't get eaten"
+  PRINT AT %y+11,2;"you've only got one life!"
+
+  PAPER 0: INK 207
+  PRINT AT %y+13,19;" Continue..."
+  PAPER 207: INK 0
+
+  REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
+
+  PROC playScreen()
+
+ENDPROC
+;
+DEFPROC playScreen()
+  .bmpload blank.bmp
+  PAPER 207: INK 0: BORDER 0: ;207 is random and configured by the .bmpload :le-sigh:
+  LET %y=9
+
+  PRINT AT %y,4;"Rescue the archaeologists"
+  PRINT AT %y+2,6;"    Save the day!"
+  PRINT AT %y+4,7;"  Don't get eaten"
+  PRINT AT %y+11,0; PAPER 0; INK 207;"                                "'"I-Instructions O-Options P-Play "
+
+ENDPROC
+;
+DEFPROC welcome()
   LOAD S$+".spr" BANK 16,0,4096
   SPRITE BORDER 0
   SPRITE BANK 13
   SPRITE STOP : ; switch to batching (though pretty sure this isn't required)
 
-  ; SPRITE 64,200,200,48,1
   LET %x=304: LET %y=208
   SPRITE 64,%x,%y,48,%@1001
   SPRITE 63,%x,%y,46,1
-  ; SPRITE CONTINUE 64,200 TO 20 STEP % SGN {-4} RUN , STOP ,48 TO 49, BIN 00101011,0,0
+
   SPRITE CONTINUE 64,0 TO %x STEP -8 RUN , STOP ,48 TO 49, BIN 0001000,3,200
   SPRITE CONTINUE 63,0 TO %x STEP -8 RUN , STOP ,46 TO 47, BIN 0001000,3,225
 
+  PROC playScreen()
+
   REPEAT
     SPRITE MOVE INT
-  REPEAT UNTIL INKEY$ <> ""
+    c$= INKEY$
+    IF c$="i" THEN PROC helpScreen()
+  REPEAT UNTIL c$="p"
   LAYER CLEAR : PALETTE CLEAR
 
 ENDPROC
 
-;
-;Quick save
-;
-CLEAR : LAYER CLEAR : SPRITE PRINT 0: SAVE "mummy.bas" LINE 0
+#autoline
+9999 CLEAR : LAYER CLEAR : SPRITE PRINT 0: SAVE "mummy.bas" LINE 0
