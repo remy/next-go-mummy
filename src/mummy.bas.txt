@@ -218,9 +218,11 @@ DEFPROC updateBaddie(%d)
 ENDPROC
 ;
 DEFPROC takeLife()
-  LET %l=%l-1
-  FOR %i=0 TO 2
-    SPRITE %55+i,%200+(i*16),%24,%48+(i MOD 2),%i < l: ; draw lives
+  FOR %i=2 TO LEVEL
+    SPRITE %55+i,%168+(i*16),%24,52,1
+  NEXT %i
+  FOR %i=LEVEL+1 TO 6
+    SPRITE %55+i,%168+(i*16),%24,53,1
   NEXT %i
 ENDPROC
 ;
@@ -432,7 +434,7 @@ RANDOMIZE % PEEK 23672: ; re-randomise - not sure this is totally worthwhile
   ; define player and game state
   LET %z=%2* INT {DIFFICULTY}: ; baddie speed
   LET %c=1: ; global badie count
-  LET %l=3: ; lives
+  LET %l=1: ; lives
   PROC welcome()
   ;
   PROC nextLevel(0)
