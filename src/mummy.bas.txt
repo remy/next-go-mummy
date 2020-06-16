@@ -201,7 +201,7 @@ DEFPROC updateBaddie(%d)
 
   ; random 0-11 - 0-3 is valid, > 3 is don't change direction
   %j=% RND 12
-  IF %j > 3 THEN %j=%A[i+3]
+  IF %j > 3 THEN %j=%A[i+3]: ; TODO make them turn towards our player
 
   ; if they're on the edge of the map, don't let them walk off
   IF %g=208 THEN IF %j=0 THEN %j=1
@@ -217,10 +217,11 @@ DEFPROC updateBaddie(%d)
   ; because I have room, and it means that I don't need an IF and subsequent SPRITE statement, i.e. the
   ; fastest code is no code.
 
-  IF %j=0 THEN SPRITE CONTINUE %b, STOP ,%g TO %g+40 STEP %z RUN ,40 TO 41, BIN 10,0,%d: ENDPROC : ; down
-  IF %j=1 THEN SPRITE CONTINUE %b, STOP ,%g-40 TO %g STEP % SGN {-z} RUN ,42 TO 43, BIN 10,0,%d: ENDPROC : ; up
-  IF %j=2 THEN SPRITE CONTINUE %b,%f TO %f+48 STEP %z RUN , STOP ,44 TO 45, BIN 10,0,%d: ENDPROC : ; right
-  IF %j=3 THEN SPRITE CONTINUE %b,%f-48 TO %f STEP % SGN {-z} RUN , STOP ,46 TO 47, BIN 10,0,%d: ENDPROC : ; left
+  %e=%A[i+5]
+  IF %j=0 THEN SPRITE CONTINUE %b, STOP ,%g TO %g+40 STEP %z RUN ,%e-4 TO %e-3, BIN 10,0,%d: ENDPROC : ; down
+  IF %j=1 THEN SPRITE CONTINUE %b, STOP ,%g-40 TO %g STEP % SGN {-z} RUN ,%e-2 TO %e-1, BIN 10,0,%d: ENDPROC : ; up
+  IF %j=2 THEN SPRITE CONTINUE %b,%f TO %f+48 STEP %z RUN , STOP ,%e TO %e+1, BIN 10,0,%d: ENDPROC : ; right
+  IF %j=3 THEN SPRITE CONTINUE %b,%f-48 TO %f STEP % SGN {-z} RUN , STOP ,%e+2 TO %e+3, BIN 10,0,%d: ENDPROC : ; left
 ENDPROC
 ;
 DEFPROC takeLife()
@@ -279,7 +280,6 @@ DEFPROC initSprites()
   LOAD "mummy.map" BANK 14: ; load tile map created at https://zx.remysharp.com/sprites/
   TILE DIM 14,0,32,8: ; using tile bank 14, offset 0, tile 32 wide, tile size 8
   TILE 32,24: ; print tile for 14 tile cols by 12 tile rows
-  SPRITE BANK 13
   SPRITE STOP : ; switch to batching (though pretty sure this isn't required)
   ;
   ; footfall marks
@@ -363,8 +363,8 @@ DEFPROC initBaddies()
     LET %A[(i*j)+2]=%i: ; 2 = delay (used to be SPRITE)
     LET %A[(i*j)+3]=% RND 4: ;3 = qaop/direction
     LET %A[(i*j)+4]=%$ff: ; 4 = alive (note to self: I changed this to 1 and baddie walked backwards)
-    LET %A[(i*j)+5]=1: ; 5 = sprite flags
-    SPRITE %i,%A[i*j]+32,%A[(i*j)+1]+48,44,1
+    LET %A[(i*j)+5]=%44-(8*(c-i)): ; 5 = sprite offset (for baddie type)
+    SPRITE %i,%A[i*j]+32,%A[(i*j)+1]+48,%A[(i*j)+5],1
   NEXT %i
 ENDPROC
 ;
@@ -416,8 +416,9 @@ DEFPROC initOnce()
   SPRITE CLEAR
   LAYER 2,1
   LOAD "m-sprites.spr" BANK 13
-  TILE BANK 15: ; point tiles to spritesheet
+  SPRITE BANK 13
   LOAD "m-tiles.spr" BANK 15: ; load spritesheet for tiles
+  TILE BANK 15: ; point tiles to spritesheet
   DIFFICULTY=4
   POKE 23658,0: ; turn off CAPS LOCK
   PROC loadFont()
