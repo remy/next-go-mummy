@@ -5,7 +5,6 @@
 ;
 RUN AT 3: REM 3.5Mhz (0 = 3.5, 1 = 7 (aim), 2 = 14 (likely))
 BORDER 0
-LET S$="MUMMY"
 ;
 ; ************ TODO ***************
 ; - [ ] Fix tomb 9 affecting tomb 10
@@ -27,14 +26,12 @@ LET S$="MUMMY"
 ; %b = baddie index
 ; %c = baddie count
 ; %d = player sprite flags (mirror, etc)
-; %e = BANK that's used to track where the baddies are
 ; %n = delta time counter (only used during dev, but needs to be reserved)
 ; %l = player lives
 ; %P = player last position, used for tread marks - initilised to $FFFF
 ; %q = player last direction (whilst movement is engaged)
 ; %r = (flag) player has scroll and can kill a mummy
 ; %s = player sprite
-; S$ = sprite filename prefix (mummy and mummy-r for retro)
 ; %T(21) = tomb array 0-19 with index 20 used for temp rendering, with 8bit flags (14 items contain data in the low bit)
 ; %t = items to find - defaults to 2
 ; %w = score
@@ -46,7 +43,16 @@ LET S$="MUMMY"
 ; LEVEL = current level
 ;
 ; TMP VARIABLES
-; i, j, k - then - f, g, h, m, o, q, u, v
+; i, j, k - then - e, f, g, h, m, o, q, u, v
+;
+; BANK INDEX
+;
+; 13: sprites
+; 14: tile map (used with BANK 16)
+; 15: tile data (sprites)
+; 16: "oh mummy" layer 2 header
+; 17:
+;
 ; **********************************
 ;
 ; clean the screen on stop
@@ -218,6 +224,7 @@ DEFPROC updateBaddie(%d)
 ENDPROC
 ;
 DEFPROC takeLife()
+  %l=%l-1
   FOR %i=2 TO LEVEL
     SPRITE %55+i,%168+(i*16),%24,52,1
   NEXT %i
@@ -269,10 +276,9 @@ ENDPROC
 ;
 DEFPROC initSprites()
   SPRITE CLEAR : LAYER 2,1: CLS : SPRITE BORDER 1: SPRITE PRINT 1
+  LOAD "mummy.map" BANK 14: ; load tile map created at https://zx.remysharp.com/sprites/
   TILE DIM 14,0,32,8: ; using tile bank 14, offset 0, tile 32 wide, tile size 8
-  LOAD S$+".map" BANK 14: ; load tile map created at https://zx.remysharp.com/sprites/
-  TILE 32,24: ; print tile for 16 tile cols by 12 tile rows
-  LOAD S$+".spr" BANK 16,0,4096
+  TILE 32,24: ; print tile for 14 tile cols by 12 tile rows
   SPRITE BANK 13
   SPRITE STOP : ; switch to batching (though pretty sure this isn't required)
   ;
@@ -343,14 +349,13 @@ DEFPROC gameOver()
   PRINT AT 12,23;"R": PAUSE 20
   INK 224
   PRINT AT 15,7;"     you ded      "
-  REPEAT : REPEAT UNTIL INKEY$ ="s":
-  PROC initNewGame(): ; setup new game
+  REPEAT : REPEAT UNTIL INKEY$ <> "":
+  SPRITE CLEAR
 ENDPROC
 ;
 ; initBaddies: %A=Array[[x,y,spr,angle(0: x, 1: y),direction(0: backward, 1: forward),alive]] (allowing for more than 10 baddies)
 ; note: i*j = j properties per baddie
 DEFPROC initBaddies()
-  BANK %e ERASE
   LET %j=6: ;n props
   FOR %i=1 TO %c: ;always have 9 baddie to update, to keep the rate constant
     LET %A[i*j]=%( RND 6)*48: ; 0 = x
@@ -359,7 +364,6 @@ DEFPROC initBaddies()
     LET %A[(i*j)+3]=% RND 4: ;3 = qaop/direction
     LET %A[(i*j)+4]=%$ff: ; 4 = alive (note to self: I changed this to 1 and baddie walked backwards)
     LET %A[(i*j)+5]=1: ; 5 = sprite flags
-    ;BANK %e POKE %(32*(A[(i*j)+1] >> 3))+(A[i*j] >> 3),%i
     SPRITE %i,%A[i*j]+32,%A[(i*j)+1]+48,44,1
   NEXT %i
 ENDPROC
@@ -411,12 +415,13 @@ DEFPROC initOnce()
   LAYER CLEAR
   SPRITE CLEAR
   LAYER 2,1
-  LOAD S$+".spr" BANK 13: ; load spritesheet for tiles
-  TILE BANK 13: ; point tiles to spritesheet
-  %e=%15: ; game map bank
+  LOAD "m-sprites.spr" BANK 13
+  TILE BANK 15: ; point tiles to spritesheet
+  LOAD "m-tiles.spr" BANK 15: ; load spritesheet for tiles
   DIFFICULTY=4
   POKE 23658,0: ; turn off CAPS LOCK
   PROC loadFont()
+  LOAD "blank.bin" BANK 16
 ENDPROC
 ;
 DEFPROC initGameVars()
@@ -429,12 +434,12 @@ DEFPROC initGameVars()
 ENDPROC
 ;
 DEFPROC initNewGame()
-RANDOMIZE % PEEK 23672: ; re-randomise - not sure this is totally worthwhile
+  RANDOMIZE % PEEK 23672: ; re-randomise - not sure this is totally worthwhile
   %w=0: ; score
   ; define player and game state
   LET %z=%2* INT {DIFFICULTY}: ; baddie speed
   LET %c=1: ; global badie count
-  LET %l=1: ; lives
+  LET %l=3: ; lives
   PROC welcome()
   ;
   PROC nextLevel(0)
@@ -477,9 +482,7 @@ DEFPROC splash()
 ENDPROC
 ;
 DEFPROC helpScreen()
-  .bmpload blank.bmp
-  BORDER 0
-  PAPER 207: INK 0: ;207 is random and configured by the .bmpload :le-sigh:
+  PROC header()
 
   LET %y=7
 
@@ -491,9 +494,9 @@ DEFPROC helpScreen()
   PRINT AT %y+6,1;"muppets and bring them"
   PRINT AT %y+7,1;"back to Blighty."
 
-  PAPER 0: INK 207
+  PAPER 0: INK 252
   PRINT AT %y+13,19;" Continue..."
-  PAPER 207: INK 0
+  PAPER 252: INK 0
 
   REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
 
@@ -503,15 +506,13 @@ DEFPROC helpScreen()
   PRINT AT %y+7,6;"Gems means points"
   PRINT AT %y+10,6;"Vanquish a guardian"
 
-  PAPER 0: INK 207
+  PAPER 0: INK 252
   PRINT AT %y+13,19;" Continue..."
-  PAPER 207: INK 0
+  PAPER 252: INK 0
 
   REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
 
-  .bmpload blank.bmp
-  BORDER 0
-  PAPER 207: INK 0: ;207 is random and configured by the .bmpload :le-sigh:
+  PROC header()
 
   LET %y=7
 
@@ -519,16 +520,16 @@ DEFPROC helpScreen()
   PRINT AT %y+2,2;"Kempton joystick and keyboard";
   PRINT AT %y+4,2;"Q= up"
   PRINT AT %y+5,2;"A= down"
-  PRINT AT %y+6,2;"O= up"
+  PRINT AT %y+6,2;"O= left"
   PRINT AT %y+7,2;"P= right"
 
   PRINT AT %y+9,2;"Surround a tomb to reveal the"
-  PRINT AT %y+10,2;"contents. Oh, don't get eaten"
+  PRINT AT %y+10,2;"contents. And don't get eaten"
   PRINT AT %y+11,2;"you've only got one life!"
 
-  PAPER 0: INK 207
+  PAPER 0: INK 252
   PRINT AT %y+13,19;" Continue..."
-  PAPER 207: INK 0
+  PAPER 252: INK 0
 
   REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
 
@@ -536,20 +537,27 @@ DEFPROC helpScreen()
 
 ENDPROC
 ;
+DEFPROC header()
+  PAPER 252: INK 0: BORDER 0:
+  CLS
+  BANK 16 COPY TO 9: ; "Oh Mummy header"
+  BANK 11 ERASE %$3000,%$1000,0: ; last 4k is black
+ENDPROC
+;
 DEFPROC playScreen()
-  .bmpload blank.bmp
-  PAPER 207: INK 0: BORDER 0: ;207 is random and configured by the .bmpload :le-sigh:
+  PROC header()
+
   LET %y=9
 
   PRINT AT %y,4;"Rescue the archaeologists"
   PRINT AT %y+2,6;"    Save the day!"
   PRINT AT %y+4,7;"  Don't get eaten"
-  PRINT AT %y+11,0; PAPER 0; INK 207;"                                "'"I-Instructions O-Options P-Play "
+  PRINT AT %y+11,0; PAPER 0; INK 252;"                                "'"I-Instructions O-Options P-Play "
 
 ENDPROC
 ;
 DEFPROC welcome()
-  LOAD S$+".spr" BANK 16,0,4096
+  LOAD "m-sprites.spr" BANK 13,0,4096
   SPRITE BORDER 0
   SPRITE BANK 13
   SPRITE STOP : ; switch to batching (though pretty sure this isn't required)
