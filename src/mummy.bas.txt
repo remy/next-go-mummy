@@ -89,6 +89,7 @@ DEFPROC updatePlayer(%z)
 
   LET %j= IN 31: ; check the joystick and then keys
 
+  ; NOTE: these shifts aren't always needed, but it makes the code consistent
   IF %( IN $fbfe >> 0&1^1) THEN LET %j=%j+@1000: ; Q
   IF %( IN $fdfe >> 0&1^1) THEN LET %j=%j+@0100: ; A
   IF %( IN $dffe >> 1&1^1) THEN LET %j=%j+@0010: ; O
@@ -482,6 +483,43 @@ DEFPROC splash()
   LAYER CLEAR : PALETTE CLEAR
 ENDPROC
 ;
+DEFPROC optionsScreen()
+  PROC header()
+
+  LET %y=7
+  DIFFICULTY=0
+  %z=0
+
+  PRINT AT %y+1,2;"Speed of game [1-5] ? █"
+  PRINT AT %y+2,2;"    (1 is fastest)"
+  PAUSE 100
+  REPEAT
+    SPRITE MOVE INT
+    LET %j=% INT { CODE INKEY$ }-$30
+    IF %j < 6 THEN %z=%j
+  REPEAT UNTIL %z <> 0
+  PRINT AT %y+1,24;%z
+  REPEAT : REPEAT UNTIL INKEY$ ="": ; wait until the key is up again
+
+  PRINT AT %y+4,2;"Difficulty level [1-5] ? █"
+  PRINT AT %y+5,2;"    (1 is hardest)"
+  REPEAT
+    SPRITE MOVE INT
+    LET %j=% INT { CODE INKEY$ }-$30
+    IF %j < 6 THEN DIFFICULTY=%j
+  REPEAT UNTIL DIFFICULTY <> 0
+  PRINT AT %y+4,27;DIFFICULTY
+
+  REPEAT : REPEAT UNTIL INKEY$ ="": ; wait until the key is up again
+
+  PRINT AT %y+7,2;"Background music [Y-N] ? █"
+  REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
+
+
+  ;REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
+
+ENDPROC
+;
 DEFPROC helpScreen()
   PROC header()
 
@@ -576,10 +614,11 @@ DEFPROC welcome()
     SPRITE MOVE INT
     c$= INKEY$
     IF c$="i" THEN PROC helpScreen()
+    IF c$="o" THEN PROC optionsScreen()
   REPEAT UNTIL c$="p"
   LAYER CLEAR : PALETTE CLEAR
 
 ENDPROC
 
 #autoline
-9999 CLEAR : LAYER CLEAR : SPRITE PRINT 0: SAVE "mummy.bas" LINE 0
+9999 CLEAR : PALETTE CLEAR : LAYER CLEAR : SPRITE PRINT 0: SAVE "mummy.bas" LINE 0
