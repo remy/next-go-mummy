@@ -61,6 +61,7 @@ BORDER 0
 ;
 ;PROC dT()
 ;PROC splash()
+;ON ERROR ON ERROR :.uninstall ndrplayer.drv: PALETTE CLEAR : LAYER CLEAR : SPRITE CLEAR : CLS : BORDER 7: STOP
 PROC initOnce()
 PROC initNewGame()
 ; core loop
@@ -227,13 +228,10 @@ DEFPROC updateBaddie(%d)
 ENDPROC
 ;
 DEFPROC takeLife()
+  FOR %i=1 TO 3
+    SPRITE %50+i,%136+(i*14),%26,54,%i < l
+  NEXT %i
   %l=%l-1
-  FOR %i=2 TO LEVEL
-    SPRITE %55+i,%168+(i*16),%24,52,1
-  NEXT %i
-  FOR %i=LEVEL+1 TO 6
-    SPRITE %55+i,%168+(i*16),%24,53,1
-  NEXT %i
 ENDPROC
 ;
 DEFPROC up(%z): ; move up
@@ -460,12 +458,13 @@ ENDPROC
 ;
 DEFPROC nextLevel(l)
   LEVEL=l+1
+  %c=% INT {LEVEL}
   ; count how many baddies are left over, and carry them across
-  %v=%0
-  FOR %j=1 TO %c
-    IF %A[(j*6)+4]=$ff THEN %v=%v+1
-  NEXT %j
-  %c=%v+1
+  ; %v=%0
+  ; FOR %j=1 TO %c
+  ;   IF %A[(j*6)+4]=$ff THEN %v=%v+1
+  ; NEXT %j
+  ; %c=%v+1
 
   ; adjust the cpu speed depending on the baddie count
   ; IF %c < 3 THEN RUN AT 2: ELSE IF %c < 4 THEN RUN AT 3: ELSE RUN AT 3
@@ -478,6 +477,15 @@ DEFPROC nextLevel(l)
   %l=%l+1: ; stupid, but can't be bothered to add more code
   PROC takeLife(): ; renders the lives
   PROC printScore()
+
+  ; show how many archaeologist's are left to save
+  FOR %i=2 TO LEVEL
+    SPRITE %55+i,%168+(i*16),%24,52,1
+  NEXT %i
+  FOR %i=LEVEL+1 TO 6
+    SPRITE %55+i,%168+(i*16),%24,53,1
+  NEXT %i
+
 ENDPROC
 ;
 DEFPROC dT()
@@ -539,6 +547,25 @@ DEFPROC optionsScreen()
 
 ENDPROC
 ;
+DEFPROC creditScreen()
+  PROC header()
+
+  LET %y=7
+
+  PRINT AT %y,1;"CREDITS"
+  PRINT AT %y+2,1;"Written by Remy Sharp";
+  PRINT AT %y+3,1;"https://remysharp.com / @rem"
+  PRINT AT %y+5,1;"Sprites by Remy's kids"
+  PRINT AT %y+7,1;"Music by Richard Faulkner"
+  PRINT AT %y+9,1;"Triology font by ZX-SOFT"
+
+  PAPER 0: INK 252
+  PRINT AT %y+13,19;" Continue..."
+  PAPER 252: INK 0
+
+  REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
+ENDPROC
+;
 DEFPROC helpScreen()
   PROC header()
 
@@ -574,7 +601,7 @@ DEFPROC helpScreen()
 
   LET %y=7
 
-  PRINT AT %y,2;"Controls"
+  PRINT AT %y,2;"CONTROLS"
   PRINT AT %y+2,2;"Kempton joystick and keyboard";
   PRINT AT %y+4,2;"Q= up"
   PRINT AT %y+5,2;"A= down"
@@ -590,6 +617,8 @@ DEFPROC helpScreen()
   PAPER 252: INK 0
 
   REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
+
+  PROC creditScreen()
 
 ENDPROC
 ;
@@ -638,6 +667,18 @@ DEFPROC welcome()
   LAYER CLEAR : PALETTE CLEAR
 
 ENDPROC
-
+;
+DEFPROC cleanUp()
+  ON ERROR : STOP : ;donothing
+  .uninstall ndrplayer.drv
+  PALETTE CLEAR
+  LAYER CLEAR
+  SPRITE CLEAR
+  CLS
+  BORDER 7
+  ; PRINT 0,0;"Error:";e;", ";l;":";s
+  ; PAUSE 0
+ENDPROC
+;
 #autoline
 9999 CLEAR : PALETTE CLEAR : LAYER CLEAR : SPRITE PRINT 0: SAVE "mummy.bas" LINE 0
