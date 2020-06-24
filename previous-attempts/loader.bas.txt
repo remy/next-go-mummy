@@ -1,0 +1,4 @@
+5 LOAD "" CODE
+7 SAVE "m:welcome" CODE
+10 .bmpload "m:/welcome"
+20 PAUSE 0
