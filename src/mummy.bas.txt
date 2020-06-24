@@ -47,17 +47,19 @@ BORDER 0
 ;
 ; BANK INDEX
 ;
-; 13: main player and NPC sprites
-; 14: tile map (used with BANK 16)
-; 15: tile data (sprites)
-; 16: "oh mummy" layer 2 header (1/3 of layer 2)
-; 17: music
-; 18: music player (nextdaw.drv)
+; 19: tiles (copied from BANK 23)
+; 20: music (mummy.ndr)
+; 21: music player (nextdaw.drv)
+; 22: main player and NPC sprites (m-sprites.spr)
+; 23: tile map (used with BANK 19) (mummy.map)
+; 24: tile data (sprites) (m-tiles.spr)
+; 25: "oh mummy" layer 2 header (1/3 of layer 2) (banner.bin)
+; 26: info screen tokens (tokens.map)
 ;
 ; **********************************
 ;
 ; clean the screen on stop
-;ON ERROR : ERROR TO er,lin,st: PROC cleanUp(er,lin,st)
+;ERROR TO er,lin,st: PRINT "broken": ON ERROR : STOP
 ;
 ;PROC dT()
 ;PROC splash()
@@ -277,8 +279,9 @@ ENDPROC
 ;
 DEFPROC initSprites()
   SPRITE CLEAR : LAYER 2,1: CLS : SPRITE BORDER 1: SPRITE PRINT 1
-  LOAD "mummy.map" BANK 14: ; load tile map created at https://zx.remysharp.com/sprites/
-  TILE DIM 14,0,32,8: ; using tile bank 14, offset 0, tile 32 wide, tile size 8
+  TILE DIM 19,0,32,8: ; using tile bank 19, offset 0, tile 32 wide, tile size 8
+  BANK 19 CLEAR
+  BANK 24 COPY TO 19: ; reset the map
   TILE 32,24: ; print tile for 14 tile cols by 12 tile rows
   SPRITE STOP : ; switch to batching (though pretty sure this isn't required)
   ;
@@ -286,8 +289,8 @@ DEFPROC initSprites()
   DATA 63,145,63,147,63,149,63,151
   DATA 144,63,146,63,148,63,150,63
   ; now we're going to push tiles into memory for feet
-  FOR %i=%0 TO %7: READ %j: BANK %14 POKE %i,%j: NEXT %i
-  FOR %i=%0 TO %7: READ %j: BANK %14 POKE %i+32,%j: NEXT %i
+  FOR %i=%0 TO %7: READ %j: BANK %19 POKE %i,%j: NEXT %i
+  FOR %i=%0 TO %7: READ %j: BANK %19 POKE %i+32,%j: NEXT %i
   ;
   ; tombopen/empty @ y:3
   DATA 28,29,29,25
@@ -317,7 +320,7 @@ DEFPROC initSprites()
   FOR %j=%3 TO %20
     FOR %i=%0 TO %3
       READ %k
-      BANK %14 POKE %i+(j << 5),%k
+      BANK %19 POKE %i+(j << 5),%k
     NEXT %i
   NEXT %j
 
@@ -403,36 +406,45 @@ DEFPROC pickRandom()
   ; pickings are in global array W
 ENDPROC
 ;
-DEFPROC loadFont()
-  LOAD "font.bin" CODE 64000
-  DPOKE 23606,63744: ; 64000-256
-  LAYER 2,1
-  PRINT CHR$ 2: ; trigger the font to be loaded
-ENDPROC
-;
-DEFPROC initOnce()
+DEFPROC loadAssets()
   CLS
   LAYER CLEAR
   SPRITE CLEAR
   LAYER 2,1
-  LOAD "m-sprites.spr" BANK 13
-  SPRITE BANK 13
-  LOAD "m-tiles.spr" BANK 15: ; load spritesheet for tiles
-  TILE BANK 15: ; point tiles to spritesheet
-  REM allows for stop and start when music is running still
-  ON ERROR CONTINUE :.uninstall nextdaw.drv : ON ERROR
-  .install nextdaw.drv
-  LOAD "mummy-01.ndr" BANK 17
-  DRIVER 50,1,0,17: REM BANK0
-  DRIVER 50,1,1,18: REM BANK1
+  ; allows for stop and start when music is running still
+  ON ERROR CONTINUE : DRIVER 50,4:.uninstall "assets/nextdaw.drv" : ON ERROR
+  .install "assets/nextdaw.drv"
+  LOAD "assets/mummy.ndr" BANK 20: ; plus bank 21 for music
+
+  LOAD "assets/m-sprites.spr" BANK 22: SPRITE BANK 22
+  LOAD "assets/mummy.map" BANK 23: ;load tile map created at https://zx.remysharp.com/sprites/
+  LOAD "assets/m-tiles.spr" BANK 24: TILE BANK 24: ; load spritesheet for tiles
+  LOAD "assets/banner.bin" BANK 25: ; header for non-game screens
+  LOAD "assets/tokens.map" BANK 26
+
+  LOAD "assets/font.bin" CODE 64000
+
+ENDPROC
+;
+DEFPROC initOnce()
+  PROC loadAssets(): ; separate allows for future single tape loader
+  ; music
+  DRIVER 50,1,0,20: REM BANK21
+  DRIVER 50,1,1,21: REM BANK21
   DRIVER 50,2: REM Init Song
   DRIVER 50,3: REM Play Song
+
+  ; font
+  DPOKE 23606,63744: ; 64000-256
+  LAYER 2,1
+  PRINT CHR$ 2: ; trigger the font to be loaded
+
+  ; tiles
+  TILE DIM 19,0,32,8: ; using tile bank 19, offset 0, tile 32 wide, tile size 8
 
   DIFFICULTY=4
   MUSIC=1
   POKE 23658,0: ; turn off CAPS LOCK
-  PROC loadFont()
-  LOAD "blank.bin" BANK 16
 ENDPROC
 ;
 DEFPROC initGameVars()
@@ -497,7 +509,7 @@ ENDPROC =%f
 ;
 DEFPROC splash()
   LAYER 2,1: CLS
-  .bmpload welcome.bmp
+  .bmpload assets/welcome.bmp
   PAUSE 0
   LAYER CLEAR : PALETTE CLEAR
 ENDPROC
@@ -570,7 +582,6 @@ DEFPROC helpScreen()
   PROC header()
 
   LET %y=7
-
   PRINT AT %y,1;"Rescue the original 1984"
   PRINT AT %y+1,1;"archaeologist party from their";
   PRINT AT %y+2,1;"failed pyramid plundering."
@@ -578,14 +589,16 @@ DEFPROC helpScreen()
   PRINT AT %y+5,1;"the guardians, rescue those"
   PRINT AT %y+6,1;"muppets and bring them"
   PRINT AT %y+7,1;"back to Blighty."
-
   PAPER 0: INK 252
   PRINT AT %y+13,19;" Continue..."
   PAPER 252: INK 0
-
   REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
+  ; the tokens
 
-  .bmpload tokens.bmp
+  PROC header()
+  TILE DIM 26,0,2,8
+  TILE 2,12 AT 0,0 TO 3,%y
+
   PRINT AT %y+1,6;"Rescue this dude"
   PRINT AT %y+4,6;"Key to escape the tomb"
   PRINT AT %y+7,6;"Gems means points"
@@ -608,9 +621,8 @@ DEFPROC helpScreen()
   PRINT AT %y+6,2;"O= left"
   PRINT AT %y+7,2;"P= right"
 
-  PRINT AT %y+9,2;"Surround a tomb to reveal the"
-  PRINT AT %y+10,2;"contents. And don't get eaten"
-  PRINT AT %y+11,2;"you've only got one life!"
+  PRINT AT %y+10,2;"Surround a tomb to reveal the"
+  PRINT AT %y+11,2;"contents. Don't get chomped!"
 
   PAPER 0: INK 252
   PRINT AT %y+13,19;" Continue..."
@@ -625,7 +637,7 @@ ENDPROC
 DEFPROC header()
   PAPER 252: INK 0: BORDER 0:
   CLS
-  BANK 16 COPY TO 9: ; "Oh Mummy header"
+  BANK 25 COPY TO 9: ; "Oh Mummy header"
   BANK 11 ERASE %$3000,%$1000,0: ; last 4k is black
 ENDPROC
 ;
@@ -643,9 +655,8 @@ DEFPROC playScreen()
 ENDPROC
 ;
 DEFPROC welcome()
-  LOAD "m-sprites.spr" BANK 13,0,4096
   SPRITE BORDER 0
-  SPRITE BANK 13
+  SPRITE BANK 22
   SPRITE STOP : ; switch to batching (though pretty sure this isn't required)
   SPRITE PRINT 1
 
@@ -656,6 +667,7 @@ DEFPROC welcome()
   SPRITE CONTINUE 64,0 TO %x STEP -8 RUN , STOP ,48 TO 49, BIN 0001000,3,200
   SPRITE CONTINUE 63,0 TO %x STEP -8 RUN , STOP ,46 TO 47, BIN 0001000,3,225
 
+  PROC helpScreen()
   PROC playScreen()
 
   REPEAT
