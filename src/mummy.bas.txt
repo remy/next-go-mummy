@@ -3,12 +3,13 @@
 #autoline 10
 ; Oh Mummy (clone), Remy Sharp 2020
 ;
-RUN AT 3: REM 3.5Mhz (0 = 3.5, 1 = 7 (aim), 2 = 14 (likely))
+RUN AT 3: REM 28Mhz
 BORDER 0
 ;
 ; ************ TODO ***************
 ; - [ ] Fix tomb 9 affecting tomb 10
 ; - [ ] Fix the top left corner foot steps
+; - [ ] Baddie revealed
 ; - [ ] Bug tomb 0
 ; - [ ] AI for baddie & dumb baddies
 ; - [~] Welcome screen / start game
@@ -63,7 +64,7 @@ BORDER 0
 ;
 ;PROC dT()
 ;PROC splash()
-;ON ERROR ON ERROR :.uninstall ndrplayer.drv: PALETTE CLEAR : LAYER CLEAR : SPRITE CLEAR : CLS : BORDER 7: STOP
+;ON ERROR PROC initNewGame()
 PROC initOnce()
 PROC initNewGame()
 ; core loop
@@ -279,9 +280,9 @@ ENDPROC
 ;
 DEFPROC initSprites()
   SPRITE CLEAR : LAYER 2,1: CLS : SPRITE BORDER 1: SPRITE PRINT 1
-  TILE DIM 19,0,32,8: ; using tile bank 19, offset 0, tile 32 wide, tile size 8
   BANK 19 CLEAR
-  BANK 24 COPY TO 19: ; reset the map
+  BANK 23 COPY TO 19: ; reset the map
+  TILE DIM 19,0,32,8: ; using tile bank 19, offset 0, tile 32 wide, tile size 8
   TILE 32,24: ; print tile for 14 tile cols by 12 tile rows
   SPRITE STOP : ; switch to batching (though pretty sure this isn't required)
   ;
@@ -415,15 +416,12 @@ DEFPROC loadAssets()
   ON ERROR CONTINUE : DRIVER 50,4:.uninstall "assets/nextdaw.drv" : ON ERROR
   .install "assets/nextdaw.drv"
   LOAD "assets/mummy.ndr" BANK 20: ; plus bank 21 for music
-
   LOAD "assets/m-sprites.spr" BANK 22: SPRITE BANK 22
   LOAD "assets/mummy.map" BANK 23: ;load tile map created at https://zx.remysharp.com/sprites/
   LOAD "assets/m-tiles.spr" BANK 24: TILE BANK 24: ; load spritesheet for tiles
   LOAD "assets/banner.bin" BANK 25: ; header for non-game screens
   LOAD "assets/tokens.map" BANK 26
-
   LOAD "assets/font.bin" CODE 64000
-
 ENDPROC
 ;
 DEFPROC initOnce()
@@ -667,7 +665,6 @@ DEFPROC welcome()
   SPRITE CONTINUE 64,0 TO %x STEP -8 RUN , STOP ,48 TO 49, BIN 0001000,3,200
   SPRITE CONTINUE 63,0 TO %x STEP -8 RUN , STOP ,46 TO 47, BIN 0001000,3,225
 
-  PROC helpScreen()
   PROC playScreen()
 
   REPEAT
@@ -680,14 +677,19 @@ DEFPROC welcome()
 
 ENDPROC
 ;
-DEFPROC cleanUp()
-  ON ERROR : STOP : ;donothing
-  .uninstall ndrplayer.drv
+DEFPROC exit()
+  ON ERROR
+  ON ERROR STOP
+  DRIVER 50,4
+  PRINT "waiting to exit"
+  PAUSE 0
+  ; .uninstall ndrplayer.drv
   PALETTE CLEAR
   LAYER CLEAR
   SPRITE CLEAR
   CLS
   BORDER 7
+  STOP
   ; PRINT 0,0;"Error:";e;", ";l;":";s
   ; PAUSE 0
 ENDPROC
