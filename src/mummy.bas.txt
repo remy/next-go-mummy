@@ -8,11 +8,11 @@ RUN AT 3: REM @ 28Mhz
 ; ************ TODO ***************
 ; - [ ] Fix tomb 9 affecting tomb 10
 ; - [ ] Fix the top left corner foot steps
-; - [ ] Baddie revealed
 ; - [ ] Bug tomb 0
 ; - [ ] AI for baddie & dumb baddies
 ; - [ ] Can we make screen transitions faster?
 ; - [~] Welcome screen / start game
+; - [x] Baddie revealed
 ; - [x] Score
 ; - [x] 10 treasure chests
 ; - [x] Open tomb effect (spr@8-11 + 12 transparency)
@@ -408,6 +408,8 @@ DEFPROC initTombs()
     %T(W(i))=%T(W(i))+(i+1)
   NEXT %i
 
+  PRINT AT 22,0;"Mummy @ ";%W(3)
+
   ; hides the baddie in a tomb
   %A[6]=%(W(3) MOD 5)*48+32+32
   %A[7]=%(W(3)/5)*40+24+48
@@ -489,7 +491,6 @@ DEFPROC initGameVars()
 ENDPROC
 ;
 DEFPROC initNewGame()
-  RANDOMIZE 0: ; % PEEK 23672: ; re-randomise - not sure this is totally worthwhile
   %w=0: ; score
   ; define player and game state
   LET %z=%16-( INT {SPEED}*2): ; baddie speed
@@ -501,6 +502,7 @@ DEFPROC initNewGame()
 ENDPROC
 ;
 DEFPROC nextLevel(l)
+  RANDOMIZE 0
   LEVEL=l+1
   %c=% INT {LEVEL}+1
   ; count how many baddies are left over, and carry them across
