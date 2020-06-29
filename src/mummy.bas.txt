@@ -11,6 +11,7 @@ RUN AT 3: REM @ 28Mhz
 ; - [ ] Bug tomb 0
 ; - [ ] AI for baddie & dumb baddies
 ; - [ ] Can we make screen transitions faster?
+; - [ ] Crack effect on tomb edge
 ; - [~] Welcome screen / start game
 ; - [x] Baddie revealed
 ; - [x] Score
@@ -357,16 +358,16 @@ DEFPROC gameOver()
   PAPER 0: INK 255
   ; FIXME this should be done with a layer erase
   ; cheap black out
-  PRINT AT 7,7;"                 "
-  PRINT AT 8,7;"                 "
-  PRINT AT 9,7;"                 "
-  PRINT AT 10,7;"                 "
-  PRINT AT 11,7;"                 "
-  PRINT AT 12,7;"                 "
-  PRINT AT 13,7;"                 "
-  PRINT AT 14,7;"                 "
-  PRINT AT 15,7;"                 "
-  PRINT AT 16,7;"                 "
+  PRINT AT 7,7;"                  "
+  PRINT AT 8,7;"                  "
+  PRINT AT 9,7;"                  "
+  PRINT AT 10,7;"                  "
+  PRINT AT 11,7;"                  "
+  PRINT AT 12,7;"                  "
+  PRINT AT 13,7;"                  "
+  PRINT AT 14,7;"                  "
+  PRINT AT 15,7;"                  "
+  PRINT AT 16,7;"                  "
   FOR %i=%0 TO %20: PAUSE 1: NEXT %i
   PRINT AT 12,8;"G": FOR %i=%0 TO %20: PAUSE 1: NEXT %i
   PRINT AT 12,10;"A": FOR %i=%0 TO %20: PAUSE 1: NEXT %i
@@ -408,7 +409,7 @@ DEFPROC initTombs()
     %T(W(i))=%T(W(i))+(i+1)
   NEXT %i
 
-  PRINT AT 22,0;"Mummy @ ";%W(3)
+  ; PRINT AT 22,0;"Mummy @ ";%W(3)
 
   ; hides the baddie in a tomb
   %A[6]=%(W(3) MOD 5)*48+32+32
