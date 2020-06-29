@@ -687,7 +687,7 @@ DEFPROC playScreen()
 ENDPROC
 ;
 DEFPROC welcome()
-  ENDPROC : ; FIXME remove
+;  ENDPROC : ; FIXME remove
   SPRITE BORDER 0
   SPRITE BANK 22
   SPRITE STOP : ; switch to batching (though pretty sure this isn't required)
