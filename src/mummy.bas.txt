@@ -8,11 +8,13 @@ RUN AT 3: REM @ 28Mhz
 ; ************ TODO ***************
 ; - [ ] Fix tomb 9 affecting tomb 10
 ; - [ ] Fix the top left corner foot steps
-; - [ ] Bug tomb 0
+; - [ ] Bug tomb 0 (needs more detail)
 ; - [ ] AI for baddie & dumb baddies
-; - [ ] Can we make screen transitions faster?
 ; - [ ] Crack effect on tomb edge
+; - [ ] Can we make screen transitions faster (tried different methods, prob not)
+; - [ ] Game over - Win state
 ; - [~] Welcome screen / start game
+; - [x] Fix baddie reveal - and the direction they go
 ; - [x] Baddie revealed
 ; - [x] Score
 ; - [x] 10 treasure chests
@@ -242,7 +244,7 @@ DEFPROC updateBaddie()
   ; this handles an edge case whereby the baddie is being revealed from hiding
   ; and they're not on the right Y plane, so the distance to the next intersection is adjusted
   %v=%48
-  IF %(f-32) MOD 48 <> 0 THEN %v=%32
+  IF %(f-32) MOD 48 <> 0 THEN %v=%32: IF %j < 2 THEN %j=2
 
   ; Note: I don't make use of the sprite mirror flag, instead I'm storing all the permutations of the sprite
   ; because I have room, and it means that I don't need an IF and subsequent SPRITE statement, i.e. the
@@ -404,12 +406,15 @@ DEFPROC initTombs()
     LET %T(i)=%$f0: ; this is 11110000 - each edge is the high nibble and set as closed/waiting to be masked later
   NEXT %i
   PROC pickRandom()
+
+  ; %W(3)=%4 :; use to force hidden baddie position
+
   ; generates: scroll (0), archaeologist (1), key (2), hidden mummy/baddie (3)
   FOR %i=%0 TO %3
     %T(W(i))=%T(W(i))+(i+1)
   NEXT %i
 
-  ; PRINT AT 22,0;"Mummy @ ";%W(3)
+  ; PRINT AT 22,0;"Hidden @ ";%W(3)
 
   ; hides the baddie in a tomb
   %A[6]=%(W(3) MOD 5)*48+32+32
@@ -443,10 +448,11 @@ DEFPROC pickRandom()
 ENDPROC
 ;
 DEFPROC loadAssets()
-  CLS
   LAYER CLEAR
-  SPRITE CLEAR
   LAYER 2,1
+  PAPER 252: INK 0: BORDER 0:
+  CLS
+  SPRITE CLEAR
   ; allows for stop and start when music is running still
   ON ERROR CONTINUE : DRIVER 50,4: ON ERROR
   ON ERROR CONTINUE :.uninstall "assets/nextdaw.drv" : ON ERROR
@@ -466,7 +472,7 @@ DEFPROC initOnce()
   DRIVER 50,1,0,20: REM BANK21
   DRIVER 50,1,1,21: REM BANK21
   DRIVER 50,2: REM Init Song
-  DRIVER 50,3: REM Play Song
+  ; DRIVER 50,3: REM Play Song
 
   ; font
   DPOKE 23606,63744: ; 64000-256
@@ -673,6 +679,8 @@ ENDPROC
 DEFPROC header()
   PAPER 252: INK 0: BORDER 0: CLS
   BANK 25 COPY TO 9: ; "Oh Mummy header"
+  BANK 10 ERASE 252
+  BANK 11 ERASE 252
   BANK 11 ERASE %$3000,%$1000,0: ; last 4k is black
 ENDPROC
 ;
@@ -690,7 +698,7 @@ DEFPROC playScreen()
 ENDPROC
 ;
 DEFPROC welcome()
-;  ENDPROC : ; FIXME remove
+  ENDPROC : ; FIXME remove
   SPRITE BORDER 0
   SPRITE BANK 22
   SPRITE STOP : ; switch to batching (though pretty sure this isn't required)
@@ -703,6 +711,7 @@ DEFPROC welcome()
   SPRITE CONTINUE 64,0 TO %x STEP -8 RUN , STOP ,48 TO 49, BIN 0001000,3,200
   SPRITE CONTINUE 63,0 TO %x STEP -8 RUN , STOP ,46 TO 47, BIN 0001000,3,225
 
+  CLS
   PROC playScreen()
 
   REPEAT
