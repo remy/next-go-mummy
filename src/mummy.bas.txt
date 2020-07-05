@@ -6,13 +6,16 @@
 RUN AT 3: REM @ 28Mhz
 ;
 ; ************ TODO ***************
-; - [ ] Fix the top left corner foot steps
-; - [ ] Bug tomb 0 (needs more detail)
-; - [ ] AI for baddie & dumb baddies
-; - [ ] Crack effect on tomb edge
-; - [ ] Can we make screen transitions faster (tried different methods, prob not)
-; - [ ] Game over - Win state
+; - [ ] (min) Game over - Win state
+; - [ ] (min) Hi-score(?)
+; - [ ] (feat) Crack effect on tomb edge
+; - [ ] (feat) AI for baddie & dumb baddies
+; - [ ] (pert) Can we make screen transitions faster (tried different methods, prob not)
+; - [ ] (feat) Improve background tile/walkway image
+; - [ ] (feat) Change colours of tombs between each level
+; - [ ] (perf) Don't call new round of poke on each level
 ; - [~] Welcome screen / start game
+; - [x] Fix the top left corner foot steps
 ; - [x] Fix tomb 9 affecting tomb 10
 ; - [x] Fix baddie reveal - and the direction they go
 ; - [x] Baddie revealed
@@ -41,7 +44,7 @@ RUN AT 3: REM @ 28Mhz
 ; %w = score
 ; %x = player x
 ; %y = player y
-; %z = sprite speed (for both baddie) - calculated based on DIFFICULTY
+; %z = speed (for both baddie and player) - calculated based on DIFFICULTY
 ; --- non int vars ---
 ; DIFFICULTY(3) = how smart the baddies's are (currently not!)
 ; LEVEL(1) = current level
@@ -49,7 +52,7 @@ RUN AT 3: REM @ 28Mhz
 ; PLAYING = bool like - whether we're in game or not (in menus)
 ;
 ; TMP VARIABLES
-; i, j, k - then - e, f, g, h, m, o, q, u, v
+; i, j, k (but often shared) - then - e, f, g, h, m, o, q, u, v (unless documented, are disposable between DEFPROCS)
 ;
 ; BANK INDEX
 ;
@@ -68,6 +71,7 @@ RUN AT 3: REM @ 28Mhz
 ;PROC splash()
 
 DEBUG=1
+SPRITEON=1
 
 ON ERROR PROC exit()
 PROC initOnce()
@@ -78,6 +82,7 @@ PROC mainLoop()
 DEFPROC mainLoop()
   REPEAT
     REPEAT
+      IF DEBUG THEN IF INKEY$ ="s" THEN SPRITEON= NOT SPRITEON: SPRITE PRINT SPRITEON
       ;IF DEBUG THEN PRINT AT %1,%0;"mem=";%65536- USR 7962;" ": ; memory available....
       IF DEBUG THEN IF INKEY$ ="t" THEN %t=0: ; FIXME remove TESTING ONLY
       PROC updateLoop(): ; update logic and render
@@ -156,7 +161,6 @@ DEFPROC checkTomb()
   IF % SGN {f < 0} THEN %g=%a: ELSE %g=%i
   G=%g+0
   IF %k THEN PROC getXTombs() TO %g,%h: ELSE PROC getYTombs() TO %g,%h
-  PRINT AT 1,0;"k:";%k;",G:";G;",g";%g;",h:";%h;"           "
   IF %g > 20 THEN %g=20: ; assign out of bounds to the junk element (index 20)
   IF %h > 20 THEN %h=20
   ; bitwise op below is $current wall & (0xF0 + wall, 1 top, 2 right, 4 bottom, 8 left)
@@ -216,14 +220,13 @@ ENDPROC
 ;
 ; leave tread marks
 DEFPROC treadMark(): ;down=0,up=2,left=4,right=6
-  ; ON ERROR : ENDPROC : ; this happens at the end of a level
   IF %P=$ffff THEN ENDPROC : ; didn't move
-  IF %P=4 THEN LET %i=%2: ELSE LET %i=%0: ; if left +1, right = -1
-  IF %P=2 THEN LET %j=%1: ELSE LET %j=%0
+  IF %P > 3 THEN LET %i=%1: ELSE LET %i=%0: ; if left +1, right = -1
+  IF %P < 3 THEN LET %j=%0: ELSE LET %j=%0
   ;
   IF %P > 3 THEN %k=%(x >> 3) MOD 2: ELSE %k=%(y >> 3) MOD 2:%i=%k:%j=%k
   ;
-  %v=%y >> 3+j+2
+  %v=%(y >> 3)+j+2
   IF %v > 8000 THEN %v=%v MOD 8192: ; handle when player is in start position
   TILE 1,2 AT %P+k,0 TO %x >> 3+i,%v
   %P=%$ffff: ; now we're not moving
@@ -339,6 +342,8 @@ DEFPROC initSprites()
   TILE DIM 19,0,32,8: ; using tile bank 19, offset 0, tile 32 wide, tile size 8
   TILE 32,24: ; print tile for 14 tile cols by 12 tile rows
   SPRITE STOP : ; switch to batching (though pretty sure this isn't required)
+  ;
+  ; FIXME this shouldn't be poked on each level
   ;
   ; footfall marks
   DATA 63,145,63,147,63,149,63,151
@@ -497,11 +502,16 @@ ENDPROC
 DEFPROC initOnce()
   PROC loadAssets(): ; separate load allows for future single tape loader
 
+  PLAYING=0
+  DIFFICULTY=4
+  SPEED=3
+  MUSIC= NOT DEBUG
+
   ; music
   DRIVER 50,1,0,20: ; BANK21
   DRIVER 50,1,1,21: ; BANK21
   DRIVER 50,2: ; Init Song
-  DRIVER 50,3: ; Play Song
+  IF MUSIC THEN DRIVER 50,3: ; Play Song
 
   ; font
   DPOKE 23606,63744: ; 64000-256
@@ -511,15 +521,11 @@ DEFPROC initOnce()
   ; tiles
   TILE DIM 19,0,32,8: ; using tile bank 19, offset 0, tile 32 wide, tile size 8
 
-  PLAYING=0
-  DIFFICULTY=4
-  SPEED=3
-  MUSIC=1
   POKE 23658,0: ; turn off CAPS LOCK (for menu items)
 ENDPROC
 ;
 DEFPROC initGameVars()
-  LET %x=96: LET %y=-16: LET %s=51: ; s= SPRITE + 4 for old skoool
+  LET %x=96: LET %y=-16: LET %s=51: ; s=sprite
   LET %d=1: ; direction & speed
   LET %P=%0: ; %P = last player position
   LET %a=%$ffff
