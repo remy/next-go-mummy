@@ -46,6 +46,7 @@ RUN AT 3: REM @ 28Mhz
 ; DIFFICULTY(3) = how smart the baddies's are (currently not!)
 ; LEVEL(1) = current level
 ; SPEED(3) = how fast the baddies are
+; PLAYING = bool like - whether we're in game or not (in menus)
 ;
 ; TMP VARIABLES
 ; i, j, k - then - e, f, g, h, m, o, q, u, v
@@ -65,17 +66,25 @@ RUN AT 3: REM @ 28Mhz
 ;
 ;PROC dT()
 ;PROC splash()
+
+DEBUG=1
+
 ON ERROR PROC exit()
 PROC initOnce()
 PROC initNewGame()
+PROC mainLoop()
+
 ; core loop
-REPEAT
+DEFPROC mainLoop()
   REPEAT
-    IF INKEY$ ="t" THEN %t=0: ; FIXME remove TESTING ONLY
-    PROC updateLoop(): ; update logic and render
-  REPEAT UNTIL %l=0 OR (t=0): ; until zero lives
-  IF %t=0 THEN PROC nextLevel(LEVEL): ELSE PROC gameOver(): PROC initNewGame()
-REPEAT UNTIL 0: ; repeat forever
+    REPEAT
+      IF DEBUG THEN PRINT AT %1,%0;"mem=";%65536- USR 7962;" ": ; memory testing....
+      IF DEBUG THEN IF INKEY$ ="t" THEN %t=0: ; FIXME remove TESTING ONLY
+      PROC updateLoop(): ; update logic and render
+    REPEAT UNTIL %l=0 OR (t=0): ; until zero lives
+    IF %t=0 THEN PROC nextLevel(LEVEL): ELSE PROC gameOver(): PROC initNewGame()
+  REPEAT UNTIL 0: ; repeat forever
+ENDPROC
 ;
 ; start main game loop - we do only one thing at a time in the main loop
 DEFPROC updateLoop()
@@ -381,7 +390,7 @@ DEFPROC gameOver()
   PRINT AT 12,23;"R": FOR %i=%0 TO %20: PAUSE 1: NEXT %i
   INK 224
   PRINT AT 15,7;"     you ded      "
-  REPEAT : REPEAT UNTIL INKEY$ <> "":
+  REPEAT : REPEAT UNTIL INKEY$ <> "" OR IN 31=16:
   SPRITE CLEAR
 ENDPROC
 ;
@@ -467,12 +476,13 @@ DEFPROC loadAssets()
 ENDPROC
 ;
 DEFPROC initOnce()
-  PROC loadAssets(): ; separate allows for future single tape loader
+  PROC loadAssets(): ; separate load allows for future single tape loader
+
   ; music
-  DRIVER 50,1,0,20: REM BANK21
-  DRIVER 50,1,1,21: REM BANK21
-  DRIVER 50,2: REM Init Song
-  ; DRIVER 50,3: REM Play Song
+  DRIVER 50,1,0,20: ; BANK21
+  DRIVER 50,1,1,21: ; BANK21
+  DRIVER 50,2: ; Init Song
+  DRIVER 50,3: ; Play Song
 
   ; font
   DPOKE 23606,63744: ; 64000-256
@@ -482,10 +492,11 @@ DEFPROC initOnce()
   ; tiles
   TILE DIM 19,0,32,8: ; using tile bank 19, offset 0, tile 32 wide, tile size 8
 
+  PLAYING=0
   DIFFICULTY=4
   SPEED=3
   MUSIC=1
-  POKE 23658,0: ; turn off CAPS LOCK
+  POKE 23658,0: ; turn off CAPS LOCK (for menu items)
 ENDPROC
 ;
 DEFPROC initGameVars()
@@ -505,6 +516,7 @@ DEFPROC initNewGame()
   LET %l=3: ; lives
   PROC welcome()
   ;
+  PLAYING=1
   PROC nextLevel(0)
 ENDPROC
 ;
@@ -698,7 +710,9 @@ DEFPROC playScreen()
 ENDPROC
 ;
 DEFPROC welcome()
-  ENDPROC : ; FIXME remove
+  ;IF DEBUG THEN ENDPROC : ; FIXME remove
+  PLAYING=0
+  SPRITE CLEAR
   SPRITE BORDER 0
   SPRITE BANK 22
   SPRITE STOP : ; switch to batching (though pretty sure this isn't required)
@@ -720,15 +734,18 @@ DEFPROC welcome()
     IF c$="i" THEN PROC helpScreen(): PROC playScreen()
     IF c$="o" THEN PROC optionsScreen(): PROC playScreen()
   REPEAT UNTIL c$="p"
+
   LAYER CLEAR : PALETTE CLEAR
 
 ENDPROC
 ;
 DEFPROC exit()
   ERROR TO err,lin,st
-  PRINT "Error:";err;", line:";lin;", statement:";st
-  REPEAT : REPEAT UNTIL INKEY$ =""
-  REPEAT : REPEAT UNTIL INKEY$ <> ""
+  e$= STR$ err
+  ; use break to exit mid-game
+  IF err > 9 THEN e$= CHR$ (err+55)
+  IF err=21 AND PLAYING THEN PROC initNewGame(): PROC mainLoop(): ENDPROC
+  IF DEBUG THEN : PRINT "Error:";e$;", line:";lin;", statement:";st: REPEAT : REPEAT UNTIL INKEY$ ="": REPEAT : REPEAT UNTIL INKEY$ <> ""
 
   ON ERROR
   DRIVER 50,4
