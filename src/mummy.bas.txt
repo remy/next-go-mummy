@@ -6,7 +6,6 @@
 RUN AT 3: REM @ 28Mhz
 ;
 ; ************ TODO ***************
-; - [ ] Fix tomb 9 affecting tomb 10
 ; - [ ] Fix the top left corner foot steps
 ; - [ ] Bug tomb 0 (needs more detail)
 ; - [ ] AI for baddie & dumb baddies
@@ -14,6 +13,7 @@ RUN AT 3: REM @ 28Mhz
 ; - [ ] Can we make screen transitions faster (tried different methods, prob not)
 ; - [ ] Game over - Win state
 ; - [~] Welcome screen / start game
+; - [x] Fix tomb 9 affecting tomb 10
 ; - [x] Fix baddie reveal - and the direction they go
 ; - [x] Baddie revealed
 ; - [x] Score
@@ -74,11 +74,11 @@ PROC initOnce()
 PROC initNewGame()
 PROC mainLoop()
 
-; core loop
+; game loop - includes: render loop, lives check & game over
 DEFPROC mainLoop()
   REPEAT
     REPEAT
-      IF DEBUG THEN PRINT AT %1,%0;"mem=";%65536- USR 7962;" ": ; memory testing....
+      ;IF DEBUG THEN PRINT AT %1,%0;"mem=";%65536- USR 7962;" ": ; memory available....
       IF DEBUG THEN IF INKEY$ ="t" THEN %t=0: ; FIXME remove TESTING ONLY
       PROC updateLoop(): ; update logic and render
     REPEAT UNTIL %l=0 OR (t=0): ; until zero lives
@@ -92,7 +92,7 @@ DEFPROC updateLoop()
   LET %b=1: ; baddie loop
   REPEAT
     %i=%b*6: ; 6 props (easy to mess this up!)
-    IF % SPRITE CONTINUE b < 2 THEN PROC updateBaddie()
+    ;IF % SPRITE CONTINUE b < 2 THEN PROC updateBaddie()
     LET %b=%b+1
   REPEAT UNTIL %b=(c+1)
   SPRITE MOVE INT
@@ -152,10 +152,11 @@ DEFPROC checkTomb()
   %f=%i-a: ; f is forward +1 or backward -1
   %k=% ABS SGN {f}=1: ; k tracks the axis, +1 for X, 0 for Y
 
-  ; FIXME there's a bug somewhere here where tomb 9 affects tomb 10 (and opens it)
-
+  ; important: %g is assigned here and used within getXTombs and getYTombs
   IF % SGN {f < 0} THEN %g=%a: ELSE %g=%i
+  G=%g+0
   IF %k THEN PROC getXTombs() TO %g,%h: ELSE PROC getYTombs() TO %g,%h
+  PRINT AT 1,0;"k:";%k;",G:";G;",g";%g;",h:";%h;"           "
   IF %g > 20 THEN %g=20: ; assign out of bounds to the junk element (index 20)
   IF %h > 20 THEN %h=20
   ; bitwise op below is $current wall & (0xF0 + wall, 1 top, 2 right, 4 bottom, 8 left)
@@ -167,14 +168,26 @@ DEFPROC checkTomb()
   LET %a=%f+a: ; save the last position (because we lost %i)
 ENDPROC
 ;
-DEFPROC getXTombs(): ; uses scoped %g var from checkTomb
+; getXTombs: get tombs above and below of player
+DEFPROC getXTombs()
+  ; %g from checkTomb
   %h=%1+(g/6)
   %i=%g-h
 ENDPROC =%i-5,%i
 ;
-DEFPROC getYTombs(): ; uses scoped %g var from checkTomb
-  %i=%g-6-(g/6)
-ENDPROC =%i,%i+1
+; getYTombs: get tombs on the left and right of player
+DEFPROC getYTombs()
+  ;%g from checkTomb
+
+  ; this uses special logic for the left and right edge of the grid,
+  ; otherwise when you complete tomb 4 (x:4, y:0) then it wrongly
+  ; applies a completed edge to 5 (x:0, y:1). The logic below fixes
+  ; that - and returns '21' for a non existant/out of scope tomb
+  %v=%(g+1) MOD 6
+  IF %v > 1 THEN %i=%g-6-(g/6): ENDPROC =%i,%i+1: ; inner grid
+  IF %v=1 THEN %i=%g-6-(g/6): ENDPROC =21,%i+1: ; completed on right edge
+ENDPROC =%g-6-(g/6),21: ; case 0 = completed on left edge
+
 ;
 DEFPROC openTomb(%i)
   LOCAL %j
