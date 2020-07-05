@@ -70,7 +70,7 @@ RUN AT 3: REM @ 28Mhz
 ;PROC dT()
 ;PROC splash()
 
-DEBUG=1
+DEBUG=0
 SPRITEON=1
 
 ON ERROR PROC exit()
@@ -82,7 +82,7 @@ PROC mainLoop()
 DEFPROC mainLoop()
   REPEAT
     REPEAT
-      IF DEBUG THEN IF INKEY$ ="s" THEN SPRITEON= NOT SPRITEON: SPRITE PRINT SPRITEON
+      ;IF DEBUG THEN IF INKEY$ ="s" THEN SPRITEON= NOT SPRITEON: SPRITE PRINT SPRITEON
       ;IF DEBUG THEN PRINT AT %1,%0;"mem=";%65536- USR 7962;" ": ; memory available....
       IF DEBUG THEN IF INKEY$ ="t" THEN %t=0: ; FIXME remove TESTING ONLY
       PROC updateLoop(): ; update logic and render
@@ -97,7 +97,7 @@ DEFPROC updateLoop()
   LET %b=1: ; baddie loop
   REPEAT
     %i=%b*6: ; 6 props (easy to mess this up!)
-    ;IF % SPRITE CONTINUE b < 2 THEN PROC updateBaddie()
+    IF % SPRITE CONTINUE b < 2 THEN PROC updateBaddie()
     LET %b=%b+1
   REPEAT UNTIL %b=(c+1)
   SPRITE MOVE INT
@@ -566,6 +566,9 @@ DEFPROC nextLevel(l)
   PROC treadMark(): ; depends on player position
   %l=%l+1: ; stupid, but can't be bothered to add more code
   PROC takeLife(): ; renders the lives
+
+  %w=%w+ INT {(LEVEL-1)*50}
+
   PROC printScore()
 
   ; show how many archaeologist's are left to save
