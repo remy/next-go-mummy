@@ -183,6 +183,12 @@ DEFPROC openTomb(%i)
   IF %j&8=8 THEN ENDPROC : ; Tomb is open, exit FIXME is this always false?
   ;
   LOCAL %y
+
+  TILE 4,3 AT 0,3 TO %2+((i MOD 5)*6),%4+((i/5)*5)
+
+  ; early exit
+  IF %j=0 THEN %T(i)=%j+8: ENDPROC
+
   %y=%(3*j)+3
   ; I can't remember why this line ends with 4+i*5/5, but I did work it out
   ; and when I just do %4+i the tile drawing messes up, where as this is fine...
