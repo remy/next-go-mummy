@@ -9,14 +9,14 @@ RUN AT 3: REM @ 28Mhz
 ; - [ ] (bug) baddies are faster than player (rendering is simpler)
 ; - [ ] (req) Game over - Win state
 ; - [ ] (req) Hi-score(?)
-; - [ ] (perf) Don't call new round of poke on each level
-; - [ ] (feat) Crack effect on tomb edge
 ; - [ ] (feat) Change colours of tombs between each level
 ; - [ ] (feat) "Get outta there" / "now find the archaeologist" / "find that key!" marquee
 ; - [ ] (feat) When player tries to turn 1 step away from a turn, "help" them and jump over it
 ; - [ ] (feat) AI for baddie & dumb baddies
 ; - [ ] (feat) Improve background tile/walkway image
 ; - [~] Welcome screen / start game
+; - [x] (feat) Crack effect on tomb edge
+; - [x] (perf) Don't call new round of poke on each level
 ; - [x] (bug) Fix the top left corner foot steps
 ; - [x] (perf) Can we make screen transitions faster (tried different methods, prob not)
 ; - [x] Fix tomb 9 affecting tomb 10
@@ -372,50 +372,7 @@ DEFPROC initSprites()
   TILE 32,24: ; print tile for 14 tile cols by 12 tile rows
   TILE DIM 27,0,4,8: ; swap to our tomb tile set
   SPRITE STOP : ; switch to batching (though pretty sure this isn't required)
-  ;
-  ; FIXME this shouldn't be poked on each level
-  ;
-  ; footfall marks
-  DATA 63,145,63,147,63,149,63,151
-  DATA 144,63,146,63,148,63,150,63
-  ; now we're going to push tiles into memory for feet
-  FOR %i=%0 TO %7: READ %j: BANK %19 POKE %i,%j: NEXT %i
-  FOR %i=%0 TO %7: READ %j: BANK %19 POKE %i+32,%j: NEXT %i
-  ;
-  ; tombopen/empty @ y:3
-  DATA 28,29,29,25
-  DATA 20,45,45,21
-  DATA 26,22,22,27
-  ; Pharaoh @ y:6 (openTomb, %j=1)
-  DATA 64,65,68,69
-  DATA 66,67,70,71
-  DATA 80,81,84,85
-  ; key @ y:9 (openTomb, %j=2)
-  DATA 72,73,76,77
-  DATA 74,75,78,79
-  DATA 88,89,92,93
-  ; scroll @ y:12 (openTomb, %j=3)
-  DATA 96,97,100,101
-  DATA 98,99,102,103
-  DATA 112,113,116,117
-  ; mummy @ y:15 (openTomb, %j=4)
-  DATA 62,62,62,62
-  DATA 62,62,63,63
-  DATA 62,62,63,63
-  ; chest @ y:18 (openTomb, %j=5)
-  DATA 104,105,108,109
-  DATA 106,107,110,111
-  DATA 120,121,124,125
 
-  ; update the tile bank (19) with these new tiles
-  FOR %j=%3 TO %20
-    FOR %i=%0 TO %3
-      READ %k
-      BANK %19 POKE %i+(j << 5),%k
-    NEXT %i
-  NEXT %j
-
-  RESTORE 10: ; reset the position of read for new games
   PAPER 0: INK 236: BORDER 6: ;background black (6 = yellow), text white
 ENDPROC
 ;
