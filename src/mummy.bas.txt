@@ -74,7 +74,7 @@ RUN AT 3: REM @ 28Mhz
 ;PROC dT()
 ;PROC splash()
 
-DEBUG=1
+DEBUG=0
 SPRITEON=1
 
 ON ERROR PROC exit()
@@ -86,9 +86,9 @@ PROC mainLoop()
 DEFPROC mainLoop()
   REPEAT
     REPEAT
-      IF DEBUG THEN IF INKEY$ ="s" THEN SPRITEON= NOT SPRITEON: SPRITE PRINT SPRITEON
+      ;IF DEBUG THEN IF INKEY$ ="s" THEN SPRITEON= NOT SPRITEON: SPRITE PRINT SPRITEON
       ;IF DEBUG THEN PRINT AT %1,%0;"mem=";%65536- USR 7962;" ": ; memory available....
-      IF DEBUG THEN IF INKEY$ ="t" THEN %t=0: ; FIXME remove TESTING ONLY
+      ;IF DEBUG THEN IF INKEY$ ="t" THEN %t=0: ; FIXME remove TESTING ONLY
       PROC updateLoop(): ; update logic and render
     REPEAT UNTIL %l=0 OR (t=0): ; until zero lives
     IF %t=0 THEN PROC nextLevel(LEVEL): ELSE PROC gameOver(): PROC initNewGame()
@@ -101,7 +101,7 @@ DEFPROC updateLoop()
   LET %b=1: ; baddie loop
   REPEAT
     %i=%b*6: ; 6 props (easy to mess this up!)
-    ;IF % SPRITE CONTINUE b < 2 THEN PROC updateBaddie()
+    IF % SPRITE CONTINUE b < 2 THEN PROC updateBaddie()
     LET %b=%b+1
   REPEAT UNTIL %b=(c+1)
   SPRITE MOVE INT
@@ -152,7 +152,6 @@ DEFPROC updatePlayer(%z)
 ENDPROC
 ;
 DEFPROC checkTomb()
-  LOCAL %j
   ; IIRC the PAUSE 1 is to attempt to match the timing if the player _had_ openned a tomb
   IF %(x MOD 48) OR (y MOD 40) THEN PAUSE 1: ENDPROC : ; only run on corners
   LET %i=%(6*(y/40))+(x/48): ; x/y as aisle index (6 aisles for 5 rows of tombs)
@@ -168,29 +167,10 @@ DEFPROC checkTomb()
   IF %k THEN PROC getXTombs() TO %g,%h: ELSE PROC getYTombs() TO %g,%h
 
   ; note that index 20 is out of bounds and assigns to the junk element
-  IF %g > 20 THEN %g=20: ; ELSE PROC crackEdge(%k,%g,1)
-  IF %h > 20 THEN %h=20: ; ELSE PROC crackEdge(%k,%h,0)
-  ; bitwise op below is $current wall & (0xF0 + wall, 1 top, 2 right, 4 bottom, 8 left)
-  ; importantly this leaves the first 4 bits untouched (Least Significant Nibble) meaning: @00001111
-  %i=%T(g)
-  %j=%T(h)
-  IF %k THEN %T(g)=%T(g)&@11011111:%T(h)=%T(h)&@01111111: ELSE %T(g)=%T(g)&@10111111:%T(h)=%T(h)&@11101111
+  IF %g < 20 THEN PROC crackEdge(%k,%g,%T(g),1,%@11011111,%@10111111)
+  IF %h < 20 THEN PROC crackEdge(%k,%h,%T(h),0,%@01111111,%@11101111)
 
-  ; only do the work if the tomb changed state
-  IF %T(g) <> i AND (g < 20) THEN PROC crackEdge(%k,%g,1): IF %T(g)&$f8=0 THEN PROC openTomb(%g)
-  IF %T(h) <> j AND (h < 20) THEN PROC crackEdge(%k,%h,0): IF %T(h)&$f8=0 THEN PROC openTomb(%h)
-
-  ; IF %T(g)&$f8=0 THEN PROC openTomb(%g): ; (value & 0xf8)==0 = all the walls are covered, and bit 4 (0x08) is _not_ set - then open the tomb
-  ; IF %T(h)&$f8=0 THEN PROC openTomb(%h)
-  ;
   %a=%f+a: ; save the last position (reverting from %f we lost %i)
-ENDPROC
-;
-DEFPROC crackEdge(%k,%i,%o)
-  %u=%2+((i MOD 5)*6): ; x in tile offset
-  %v=%4+((i/5)*5): ; y in tile offset
-
-  IF %k THEN TILE 4,1 AT 0,%24+o TO %u,%v+(o*2): ELSE TILE 1,3 AT %0+o,%21 TO %u+(o*3),%v
 ENDPROC
 ;
 ; getXTombs: get tombs above and below of player
@@ -212,24 +192,32 @@ DEFPROC getYTombs()
   IF %v > 1 THEN %i=%g-6-(g/6): ENDPROC =%i,%i+1: ; inner grid
   IF %v=1 THEN %i=%g-6-(g/6): ENDPROC =21,%i+1: ; completed on right edge
 ENDPROC =%g-6-(g/6),21: ; case 0 = completed on left edge
-
 ;
-DEFPROC openTomb(%i)
-  LOCAL %j
-  %j=%T(i)
-  IF %i=20 THEN ENDPROC :
-  IF %j&8=8 THEN ENDPROC : ; Tomb is open, exit FIXME is this always false?
+DEFPROC crackEdge(%k,%i,%j,%o,%a,%b)
+  ; cache the curent value, and if it doesn't change, nothing to do / endproc
+  IF %j&8=8 THEN ENDPROC
 
-  ; I can't remember why this line ends with 4+i*5/5, but I did work it out
-  ; and when I just do %4+i the tile drawing messes up, where as this is fine...
-  %u=%2+((i MOD 5)*6): ; x in tile offset
-  %v=%4+((i/5)*5): ; y in tile offset
+  %u=%2+((i MOD 5)*6): ; map X to the x coord in tile offset
+  %v=%4+((i/5)*5): ; same with Y
+
+  ; bitwise op below is $current wall & (0xF0 + wall, 1 top, 2 right, 4 bottom, 8 left)
+  ; importantly this leaves the first 4 bits untouched (Least Significant Nibble) meaning: @00001111
+  IF %k THEN %T(i)=%T(i)&a: ELSE %T(i)=%T(i)&b
+  IF %T(i)=j THEN ENDPROC
+
+  ; print the cracked tile
+  IF %k THEN TILE 4,1 AT 0,%24+o TO %u,%v+(o*2): ELSE TILE 1,3 AT %0+o,%21 TO %u+(o*3),%v
+
+  %j=%T(i)
+
+  ; only continue if the tomb is fully open
+  IF %j&$f8 <> 0 THEN ENDPROC
 
   ; open tomb (ie. slightly different colour)
   TILE 4,3 AT 0,3 TO %u,%v
 
   ; early exit
-  IF %j=0 THEN %T(i)=%j+8: ENDPROC
+  ;IF %j=0 THEN %T(i)=%j+8: ENDPROC
 
   TILE 4,3 AT 0,%(3*j)+3 TO %u,%v
 
@@ -240,6 +228,7 @@ DEFPROC openTomb(%i)
   IF %j=4 THEN %A[6+4]=%$ff:%A[6+3]=3: SPRITE 1,,,%A[6+5]-4,1: SPRITE CONTINUE 1, STOP ,%A[7] TO %A[7]+16 STEP 1 RUN ,%A[6+5]-4 TO %A[6+5]-1, BIN 10,1,20
 
   %T(i)=%j+8: ; prevent the tomb from being reopened
+
   PROC printScore()
 ENDPROC
 ;
