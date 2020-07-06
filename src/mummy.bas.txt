@@ -6,16 +6,19 @@
 RUN AT 3: REM @ 28Mhz
 ;
 ; ************ TODO ***************
-; - [ ] (min) Game over - Win state
-; - [ ] (min) Hi-score(?)
-; - [ ] (feat) Crack effect on tomb edge
-; - [ ] (feat) AI for baddie & dumb baddies
-; - [ ] (pert) Can we make screen transitions faster (tried different methods, prob not)
-; - [ ] (feat) Improve background tile/walkway image
-; - [ ] (feat) Change colours of tombs between each level
+; - [~] (bug) Fix the top left corner foot steps
+; - [ ] (bug) baddies are faster than player (rendering is simpler)
+; - [ ] (req) Game over - Win state
+; - [ ] (req) Hi-score(?)
 ; - [ ] (perf) Don't call new round of poke on each level
+; - [ ] (feat) Crack effect on tomb edge
+; - [ ] (feat) Change colours of tombs between each level
+; - [ ] (feat) "Get outta there" / "now find the archaeologist" / "find that key!" marquee
+; - [ ] (feat) When player tries to turn 1 step away from a turn, "help" them and jump over it
+; - [ ] (feat) AI for baddie & dumb baddies
+; - [ ] (feat) Improve background tile/walkway image
+; - [ ] (per) Can we make screen transitions faster (tried different methods, prob not)
 ; - [~] Welcome screen / start game
-; - [x] Fix the top left corner foot steps
 ; - [x] Fix tomb 9 affecting tomb 10
 ; - [x] Fix baddie reveal - and the direction they go
 ; - [x] Baddie revealed
@@ -683,7 +686,7 @@ DEFPROC helpScreen()
 
   PRINT AT %y+1,6;"Rescue this dude"
   PRINT AT %y+4,6;"Key to escape the tomb"
-  PRINT AT %y+7,6;"Gems means points"
+  PRINT AT %y+7,6;"Gems means hi-scores"
   PRINT AT %y+10,6;"Vanquish a guardian"
 
   PAPER 0: INK 252
