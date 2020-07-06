@@ -6,15 +6,16 @@
 RUN AT 3: REM @ 28Mhz
 ;
 ; ************ TODO ***************
-; - [ ] (bug) baddies are faster than player (rendering is simpler)
+; - [ ] (feat) When player tries to turn 1 step away from a turn, "help" them and jump over it
+; - [ ] (bug) on start of next level you're thrown out of the beginning
 ; - [ ] (req) Game over - Win state
 ; - [ ] (req) Hi-score(?)
 ; - [ ] (feat) Change colours of tombs between each level
 ; - [ ] (feat) "Get outta there" / "now find the archaeologist" / "find that key!" marquee
-; - [ ] (feat) When player tries to turn 1 step away from a turn, "help" them and jump over it
 ; - [ ] (feat) AI for baddie & dumb baddies
 ; - [ ] (feat) Improve background tile/walkway image
 ; - [~] Welcome screen / start game
+; - [x] (bug) baddies are faster than player (rendering is simpler) (5: baddie slow, 4: baddie same speed)
 ; - [x] (feat) Crack effect on tomb edge
 ; - [x] (perf) Don't call new round of poke on each level
 ; - [x] (bug) Fix the top left corner foot steps
@@ -42,6 +43,8 @@ RUN AT 3: REM @ 28Mhz
 ; %q = player last direction (whilst movement is engaged)
 ; %r = (flag) player has scroll and can kill a mummy
 ; %s = player sprite
+; %R() = used to pick random selection of hidden items
+; %S(...) = speed option array
 ; %T(21) = tomb array 0-19 with index 20 used for temp rendering, with 8bit flags (14 items contain data in the low bit)
 ; %t = items to find - defaults to 2
 ; %w = score
@@ -74,7 +77,7 @@ RUN AT 3: REM @ 28Mhz
 ;PROC dT()
 ;PROC splash()
 
-DEBUG=0
+DEBUG=1
 SPRITEON=1
 
 ON ERROR PROC exit()
@@ -101,7 +104,7 @@ DEFPROC updateLoop()
   LET %b=1: ; baddie loop
   REPEAT
     %i=%b*6: ; 6 props (easy to mess this up!)
-    IF % SPRITE CONTINUE b < 2 THEN PROC updateBaddie()
+    ;IF % SPRITE CONTINUE b < 2 THEN PROC updateBaddie()
     LET %b=%b+1
   REPEAT UNTIL %b=(c+1)
   SPRITE MOVE INT
@@ -288,6 +291,8 @@ DEFPROC updateBaddie()
 
   ; save their direction
   %A[i+3]=%j
+
+  ; FIXME what does this do?
   %A[(i*j)+2]=0
 
   ; this handles an edge case whereby the baddie is being revealed from hiding
@@ -306,8 +311,8 @@ DEFPROC updateBaddie()
 ENDPROC
 ;
 DEFPROC takeLife()
-  FOR %i=1 TO 3
-    SPRITE %50+i,%136+(i*14),%26,54,%i < l
+  FOR %i=1 TO DIFFICULTY
+    SPRITE %50+i,%16,%32+(i*14),54,%i < l
   NEXT %i
   %l=%l-1
 ENDPROC
@@ -443,15 +448,15 @@ DEFPROC pickRandom()
   %i=0
   ; init the 0-N array
   REPEAT
-    %S(i)=%i
+    %R(i)=%i
     %i=%i+1
   REPEAT UNTIL %i=v
   ; then go back downwards for P values
   REPEAT
     %t=% RND i
-    %W(v-i)=%S(t): ; W is our global (winning positions)
+    %W(v-i)=%R(t): ; W is our global (winning positions)
     %i=%i-1
-    %S(t)=%S(i)
+    %R(t)=%R(i)
   REPEAT UNTIL %i=(v-p)
   ; pickings are in global array W
 ENDPROC
@@ -480,8 +485,15 @@ DEFPROC initOnce()
   PROC loadAssets(): ; separate load allows for future single tape loader
 
   PLAYING=0
-  DIFFICULTY=4
+  DIFFICULTY=3
   SPEED=3
+
+  %S(1)=%12
+  %S(2)=%10
+  %S(3)=%8
+  %S(4)=%6
+  %S(5)=%4
+
   MUSIC= NOT DEBUG
 
   ; music
@@ -510,9 +522,9 @@ ENDPROC
 DEFPROC initNewGame()
   %w=0: ; score
   ; define player and game state
-  LET %z=%16-( INT {SPEED}*2): ; baddie speed
+  LET %z=%S( INT {SPEED}): ; baddie speed
   LET %c=1: ; global badie count
-  LET %l=3: ; lives
+  LET %l=% INT {DIFFICULTY}: ; lives
   PROC welcome()
   ;
   PLAYING=1
@@ -547,11 +559,16 @@ DEFPROC nextLevel(l)
 
   ; show how many archaeologist's are left to save
   FOR %i=2 TO LEVEL
-    SPRITE %55+i,%168+(i*16),%24,52,1
+    ;   SPRITE %55+i,%168+(i*16),%24,52,1
+    SPRITE %55+i,%290,%14+(i*18),52,1
   NEXT %i
   FOR %i=LEVEL+1 TO 6
-    SPRITE %55+i,%168+(i*16),%24,53,1
+    ;   SPRITE %55+i,%168+(i*16),%24,53,1
+    SPRITE %55+i,%290,%14+(i*18),53,1
   NEXT %i
+
+  ; wait for a key up
+  REPEAT : REPEAT UNTIL INKEY$ =""
 
 ENDPROC
 ;
@@ -576,7 +593,7 @@ DEFPROC optionsScreen()
   DIFFICULTY=0
   %z=0
 
-  PRINT AT %y+1,2;"Speed of game [1-5] ? █"
+  PRINT AT %y+1,2;"Speed of baddies [1-5] ? █"
   PRINT AT %y+2,2;"    (1 is fastest)"
   PAUSE 100
   REPEAT
@@ -584,9 +601,9 @@ DEFPROC optionsScreen()
     LET %j=% INT { CODE INKEY$ }-$30
     IF %j < 6 THEN %z=%j
   REPEAT UNTIL %z <> 0
-  PRINT AT %y+1,24;%z
+  PRINT AT %y+1,27;%z
   SPEED=%z
-  %z=%16-(z*2)
+  %z=%S( INT {SPEED})
   REPEAT : REPEAT UNTIL INKEY$ ="": ; wait until the key is up again
 
   PRINT AT %y+4,2;"Difficulty level [1-5] ? █"
@@ -712,7 +729,7 @@ DEFPROC playScreen()
   PRINT AT %y+2,6;"    Save the day!"
   PRINT AT %y+4,6;"   Don't get eaten"
   PRINT AT %y+11,0; PAPER 0; INK 252;"                                "
-  PRINT AT %y+12,0; PAPER 0; INK 252;"I-Instructions O-Options P-Play "
+  PRINT AT %y+12,0; PAPER 0; INK 252;"I-Instructions O-Options S-Start"
 
 ENDPROC
 ;
@@ -740,7 +757,7 @@ DEFPROC welcome()
     c$= INKEY$
     IF c$="i" THEN PROC helpScreen(): PROC playScreen()
     IF c$="o" THEN PROC optionsScreen(): PROC playScreen()
-  REPEAT UNTIL c$="p"
+  REPEAT UNTIL c$="s" OR IN 31=16
 
   LAYER CLEAR : PALETTE CLEAR
 
