@@ -6,7 +6,6 @@
 RUN AT 3: REM @ 28Mhz
 ;
 ; ************ TODO ***************
-; - [~] (bug) Fix the top left corner foot steps
 ; - [ ] (bug) baddies are faster than player (rendering is simpler)
 ; - [ ] (req) Game over - Win state
 ; - [ ] (req) Hi-score(?)
@@ -18,6 +17,7 @@ RUN AT 3: REM @ 28Mhz
 ; - [ ] (feat) AI for baddie & dumb baddies
 ; - [ ] (feat) Improve background tile/walkway image
 ; - [~] Welcome screen / start game
+; - [x] (bug) Fix the top left corner foot steps
 ; - [x] (perf) Can we make screen transitions faster (tried different methods, prob not)
 ; - [x] Fix tomb 9 affecting tomb 10
 ; - [x] Fix baddie reveal - and the direction they go
@@ -67,13 +67,14 @@ RUN AT 3: REM @ 28Mhz
 ; 24: tile data (sprites) (m-tiles.spr)
 ; 25: "oh mummy" layer 2 header (1/3 of layer 2) (banner.bin)
 ; 26: info screen tokens (tokens.map)
+; 27: tomb tiles - extra graphics arranged in a useful layout
 ;
 ; **********************************
 ;
 ;PROC dT()
 ;PROC splash()
 
-DEBUG=0
+DEBUG=1
 SPRITEON=1
 
 ON ERROR PROC exit()
@@ -85,7 +86,7 @@ PROC mainLoop()
 DEFPROC mainLoop()
   REPEAT
     REPEAT
-      ;IF DEBUG THEN IF INKEY$ ="s" THEN SPRITEON= NOT SPRITEON: SPRITE PRINT SPRITEON
+      IF DEBUG THEN IF INKEY$ ="s" THEN SPRITEON= NOT SPRITEON: SPRITE PRINT SPRITEON
       ;IF DEBUG THEN PRINT AT %1,%0;"mem=";%65536- USR 7962;" ": ; memory available....
       IF DEBUG THEN IF INKEY$ ="t" THEN %t=0: ; FIXME remove TESTING ONLY
       PROC updateLoop(): ; update logic and render
@@ -100,7 +101,7 @@ DEFPROC updateLoop()
   LET %b=1: ; baddie loop
   REPEAT
     %i=%b*6: ; 6 props (easy to mess this up!)
-    IF % SPRITE CONTINUE b < 2 THEN PROC updateBaddie()
+    ;IF % SPRITE CONTINUE b < 2 THEN PROC updateBaddie()
     LET %b=%b+1
   REPEAT UNTIL %b=(c+1)
   SPRITE MOVE INT
@@ -151,6 +152,7 @@ DEFPROC updatePlayer(%z)
 ENDPROC
 ;
 DEFPROC checkTomb()
+  LOCAL %j
   ; IIRC the PAUSE 1 is to attempt to match the timing if the player _had_ openned a tomb
   IF %(x MOD 48) OR (y MOD 40) THEN PAUSE 1: ENDPROC : ; only run on corners
   LET %i=%(6*(y/40))+(x/48): ; x/y as aisle index (6 aisles for 5 rows of tombs)
@@ -162,17 +164,33 @@ DEFPROC checkTomb()
 
   ; important: %g is assigned here and used within getXTombs and getYTombs
   IF % SGN {f < 0} THEN %g=%a: ELSE %g=%i
-  G=%g+0
+
   IF %k THEN PROC getXTombs() TO %g,%h: ELSE PROC getYTombs() TO %g,%h
-  IF %g > 20 THEN %g=20: ; assign out of bounds to the junk element (index 20)
-  IF %h > 20 THEN %h=20
+
+  ; note that index 20 is out of bounds and assigns to the junk element
+  IF %g > 20 THEN %g=20: ; ELSE PROC crackEdge(%k,%g,1)
+  IF %h > 20 THEN %h=20: ; ELSE PROC crackEdge(%k,%h,0)
   ; bitwise op below is $current wall & (0xF0 + wall, 1 top, 2 right, 4 bottom, 8 left)
-  ; importantly this leaves the first 4 bits untouched
+  ; importantly this leaves the first 4 bits untouched (Least Significant Nibble) meaning: @00001111
+  %i=%T(g)
+  %j=%T(h)
   IF %k THEN %T(g)=%T(g)&@11011111:%T(h)=%T(h)&@01111111: ELSE %T(g)=%T(g)&@10111111:%T(h)=%T(h)&@11101111
-  IF %T(g)&$f8=0 THEN PROC openTomb(%g): ; (value & 0xf8)==0 = all the walls are covered, and bit 4 (0x08) is _not_ set - then open the tomb
-  IF %T(h)&$f8=0 THEN PROC openTomb(%h)
+
+  ; only do the work if the tomb changed state
+  IF %T(g) <> i AND (g < 20) THEN PROC crackEdge(%k,%g,1): IF %T(g)&$f8=0 THEN PROC openTomb(%g)
+  IF %T(h) <> j AND (h < 20) THEN PROC crackEdge(%k,%h,0): IF %T(h)&$f8=0 THEN PROC openTomb(%h)
+
+  ; IF %T(g)&$f8=0 THEN PROC openTomb(%g): ; (value & 0xf8)==0 = all the walls are covered, and bit 4 (0x08) is _not_ set - then open the tomb
+  ; IF %T(h)&$f8=0 THEN PROC openTomb(%h)
   ;
-  LET %a=%f+a: ; save the last position (because we lost %i)
+  %a=%f+a: ; save the last position (reverting from %f we lost %i)
+ENDPROC
+;
+DEFPROC crackEdge(%k,%i,%o)
+  %u=%2+((i MOD 5)*6): ; x in tile offset
+  %v=%4+((i/5)*5): ; y in tile offset
+
+  IF %k THEN TILE 4,1 AT 0,%24+o TO %u,%v+(o*2): ELSE TILE 1,3 AT %0+o,%21 TO %u+(o*3),%v
 ENDPROC
 ;
 ; getXTombs: get tombs above and below of player
@@ -201,22 +219,26 @@ DEFPROC openTomb(%i)
   %j=%T(i)
   IF %i=20 THEN ENDPROC :
   IF %j&8=8 THEN ENDPROC : ; Tomb is open, exit FIXME is this always false?
-  ;
-  LOCAL %y
 
-  TILE 4,3 AT 0,3 TO %2+((i MOD 5)*6),%4+((i/5)*5)
+  ; I can't remember why this line ends with 4+i*5/5, but I did work it out
+  ; and when I just do %4+i the tile drawing messes up, where as this is fine...
+  %u=%2+((i MOD 5)*6): ; x in tile offset
+  %v=%4+((i/5)*5): ; y in tile offset
+
+  ; open tomb (ie. slightly different colour)
+  TILE 4,3 AT 0,3 TO %u,%v
 
   ; early exit
   IF %j=0 THEN %T(i)=%j+8: ENDPROC
 
-  %y=%(3*j)+3
-  ; I can't remember why this line ends with 4+i*5/5, but I did work it out
-  ; and when I just do %4+i the tile drawing messes up, where as this is fine...
-  TILE 4,3 AT 0,%y TO %2+((i MOD 5)*6),%4+((i/5)*5)
-  ; pharoh, key, scroll or treasure (in that order) (currently missing new mummy/guardian)
+  TILE 4,3 AT 0,%(3*j)+3 TO %u,%v
+
+  ; archaeologist(1), key(2), amulet(3), baddie(4) or treasure(5)
   IF %j=1 THEN %t=%t-1:%w=%w+50: ELSE IF %j=2 THEN %t=%t-1: ELSE IF %j=3 THEN %r=%1: ELSE IF %j=5 THEN %w=%w+5
+
   ; if we revealed a baddie, bring them to life, and kick them off
   IF %j=4 THEN %A[6+4]=%$ff:%A[6+3]=3: SPRITE 1,,,%A[6+5]-4,1: SPRITE CONTINUE 1, STOP ,%A[7] TO %A[7]+16 STEP 1 RUN ,%A[6+5]-4 TO %A[6+5]-1, BIN 10,1,20
+
   %T(i)=%j+8: ; prevent the tomb from being reopened
   PROC printScore()
 ENDPROC
@@ -224,14 +246,18 @@ ENDPROC
 ; leave tread marks
 DEFPROC treadMark(): ;down=0,up=2,left=4,right=6
   IF %P=$ffff THEN ENDPROC : ; didn't move
-  IF %P > 3 THEN LET %i=%1: ELSE LET %i=%0: ; if left +1, right = -1
-  IF %P < 3 THEN LET %j=%0: ELSE LET %j=%0
+  IF %P > 3 THEN %i=%(x >> 3) MOD 2: ELSE %i=%(y >> 3) MOD 2: ; if left +1, right = -1
   ;
-  IF %P > 3 THEN %k=%(x >> 3) MOD 2: ELSE %k=%(y >> 3) MOD 2:%i=%k:%j=%k
-  ;
-  %v=%(y >> 3)+j+2
+  %v=%(y >> 3)+2
   IF %v > 8000 THEN %v=%v MOD 8192: ; handle when player is in start position
-  TILE 1,2 AT %P+k,0 TO %x >> 3+i,%v
+
+  ; IF %P=0 THEN TILE 2,1 AT 0,%26+i TO %x >> 3,%v
+  ; IF %P=2 THEN TILE 2,1 AT 2,%26+i TO %x >> 3,%v+1
+  ; IF %P=4 THEN TILE 1,2 AT %0+i,28 TO %x >> 3+1,%v
+  ; IF %P=6 THEN TILE 1,2 AT %2+i,28 TO %x >> 3,%v
+  ; The four above lines can be refactored into a single line below
+  IF %P < 3 THEN TILE 2,1 AT %P,%26+i TO %x >> 3,%v+(P >> 1): ELSE TILE 1,2 AT %P-4+i,28 TO %x >> 3+(P MOD 3),%v
+
   %P=%$ffff: ; now we're not moving
 ENDPROC
 ;
@@ -339,11 +365,12 @@ ENDPROC
 ; init functions
 ;
 DEFPROC initSprites()
-  SPRITE CLEAR : LAYER 2,1: CLS : SPRITE BORDER 1: SPRITE PRINT 1
+  SPRITE CLEAR : LAYER 2,1: SPRITE BORDER 1: SPRITE PRINT 1
   BANK 19 CLEAR
   BANK 23 COPY TO 19: ; reset the map
   TILE DIM 19,0,32,8: ; using tile bank 19, offset 0, tile 32 wide, tile size 8
   TILE 32,24: ; print tile for 14 tile cols by 12 tile rows
+  TILE DIM 27,0,4,8: ; swap to our tomb tile set
   SPRITE STOP : ; switch to batching (though pretty sure this isn't required)
   ;
   ; FIXME this shouldn't be poked on each level
@@ -487,7 +514,7 @@ DEFPROC loadAssets()
   LAYER CLEAR
   LAYER 2,1
   PAPER 252: INK 0: BORDER 0:
-  CLS
+  ;CLS
   SPRITE CLEAR
   ; allows for stop and start when music is running still
   ON ERROR CONTINUE : DRIVER 50,4: ON ERROR
@@ -499,6 +526,7 @@ DEFPROC loadAssets()
   LOAD "assets/m-tiles.spr" BANK 24: TILE BANK 24: ; load spritesheet for tiles
   LOAD "assets/banner.bin" BANK 25: ; header for non-game screens
   LOAD "assets/tokens.map" BANK 26
+  LOAD "assets/tombs.map" BANK 27
   LOAD "assets/font.bin" CODE 64000
 ENDPROC
 ;
@@ -520,9 +548,6 @@ DEFPROC initOnce()
   DPOKE 23606,63744: ; 64000-256
   LAYER 2,1
   PRINT CHR$ 2: ; trigger the font to be loaded
-
-  ; tiles
-  TILE DIM 19,0,32,8: ; using tile bank 19, offset 0, tile 32 wide, tile size 8
 
   POKE 23658,0: ; turn off CAPS LOCK (for menu items)
 ENDPROC
@@ -681,13 +706,16 @@ DEFPROC helpScreen()
   ; the tokens
 
   PROC header()
-  TILE DIM 26,0,2,8
-  TILE 2,12 AT 0,0 TO 3,%y
+  TILE DIM 27,24,4,8
+  TILE 4,3 AT  0,0 TO 2,%y
+  TILE 4,3 AT 12,0 TO 2,%y+3
+  TILE 4,3 AT 24,0 TO 2,%y+6
+  TILE 4,3 AT 48,0 TO 2,%y+9
 
   PRINT AT %y+1,6;"Rescue this dude"
   PRINT AT %y+4,6;"Key to escape the tomb"
-  PRINT AT %y+7,6;"Gems means hi-scores"
-  PRINT AT %y+10,6;"Vanquish a guardian"
+  PRINT AT %y+7,6;"Vanquish a guardian"
+  PRINT AT %y+10,6;"Gems means hi-scores"
 
   PAPER 0: INK 252
   PRINT AT %y+13,19;" Continue..."
@@ -743,7 +771,7 @@ DEFPROC playScreen()
 ENDPROC
 ;
 DEFPROC welcome()
-  ;IF DEBUG THEN ENDPROC : ; FIXME remove
+  IF DEBUG THEN ENDPROC : ; FIXME remove
   PLAYING=0
   SPRITE CLEAR
   SPRITE BORDER 0
@@ -774,13 +802,13 @@ ENDPROC
 ;
 DEFPROC exit()
   ERROR TO err,lin,st
+  ON ERROR
   e$= STR$ err
   ; use break to exit mid-game
   IF err > 9 THEN e$= CHR$ (err+55)
   IF err=21 AND PLAYING THEN PROC initNewGame(): PROC mainLoop(): ENDPROC
-  IF DEBUG THEN : PRINT "Error:";e$;", line:";lin;", statement:";st: REPEAT : REPEAT UNTIL INKEY$ ="": REPEAT : REPEAT UNTIL INKEY$ <> ""
+  IF DEBUG THEN : PRINT CHR$ 30,: PRINT "Error:";e$;", line:";lin;", statement:";st: REPEAT : REPEAT UNTIL INKEY$ ="": REPEAT : REPEAT UNTIL INKEY$ <> ""
 
-  ON ERROR
   DRIVER 50,4
   .uninstall "assets/nextdaw.drv"
   PALETTE CLEAR
