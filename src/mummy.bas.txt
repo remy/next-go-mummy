@@ -17,8 +17,8 @@ RUN AT 3: REM @ 28Mhz
 ; - [ ] (feat) When player tries to turn 1 step away from a turn, "help" them and jump over it
 ; - [ ] (feat) AI for baddie & dumb baddies
 ; - [ ] (feat) Improve background tile/walkway image
-; - [ ] (per) Can we make screen transitions faster (tried different methods, prob not)
 ; - [~] Welcome screen / start game
+; - [x] (perf) Can we make screen transitions faster (tried different methods, prob not)
 ; - [x] Fix tomb 9 affecting tomb 10
 ; - [x] Fix baddie reveal - and the direction they go
 ; - [x] Baddie revealed
@@ -720,10 +720,12 @@ DEFPROC helpScreen()
 ENDPROC
 ;
 DEFPROC header()
-  PAPER 252: INK 0: BORDER 0: CLS
+  PAPER 252: INK 0: BORDER 0
+  ; important: I'm not using CLS as this method is faster
+  ; otherwise there's a visible screen clear and reset
   BANK 25 COPY TO 9: ; "Oh Mummy header"
   BANK 10 ERASE 252
-  BANK 11 ERASE 252
+  BANK 11 ERASE %0,%$3000,252
   BANK 11 ERASE %$3000,%$1000,0: ; last 4k is black
 ENDPROC
 ;
