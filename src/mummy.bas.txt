@@ -71,6 +71,7 @@ RUN AT 3: REM @ 28Mhz
 ; 25: "oh mummy" layer 2 header (1/3 of layer 2) (banner.bin)
 ; 26: info screen tokens (tokens.map)
 ; 27: tomb tiles - extra graphics arranged in a useful layout
+; 28: palette - let's me change level colours without additional graphics
 ;
 ; **********************************
 ;
@@ -91,7 +92,7 @@ DEFPROC mainLoop()
     REPEAT
       ;IF DEBUG THEN IF INKEY$ ="s" THEN SPRITEON= NOT SPRITEON: SPRITE PRINT SPRITEON
       ;IF DEBUG THEN PRINT AT %1,%0;"mem=";%65536- USR 7962;" ": ; memory available....
-      ;IF DEBUG THEN IF INKEY$ ="t" THEN %t=0: ; FIXME remove TESTING ONLY
+      IF DEBUG THEN IF INKEY$ ="t" THEN %t=0: ; FIXME remove TESTING ONLY
       PROC updateLoop(): ; update logic and render
     REPEAT UNTIL %l=0 OR (t=0): ; until zero lives
     IF %t=0 THEN PROC nextLevel(LEVEL): ELSE PROC gameOver(): PROC initNewGame()
@@ -144,7 +145,6 @@ DEFPROC updatePlayer(%z)
   IF %y=$FFF0 OR (y=$FFF8) THEN : ELSE : IF %y > $ff THEN : LET %y=0: ELSE IF %y > 160 THEN : LET %y=160
 
   PROC checkTomb()
-
 
   ; render
   SPRITE 64,%x+32,%y+48,%s,%d
@@ -317,10 +317,13 @@ DEFPROC updateBaddie()
 ENDPROC
 ;
 DEFPROC takeLife()
-  FOR %i=1 TO DIFFICULTY
-    SPRITE %50+i,%16,%32+(i*14),54,%i < l
-  NEXT %i
   %l=%l-1
+  FOR %i=1 TO %l
+    SPRITE %50+i,%16,%32+(i*14),54,1
+  NEXT %i
+  FOR %i=%l+1 TO % INT {DIFFICULTY}
+    SPRITE %50+i,%16,%32+(i*14),55,1
+  NEXT %i
 ENDPROC
 ;
 DEFPROC up(%z): ; move up
@@ -413,7 +416,7 @@ ENDPROC
 ; note: i*j = j properties per baddie
 DEFPROC initBaddies()
   LET %j=6: ;n props
-  FOR %i=1 TO %c: ;always have 9 baddie to update, to keep the rate constant
+  FOR %i=1 TO %c
     LET %A[i*j]=%( RND 6)*48: ; 0 = x
     LET %A[(i*j)+1]=%40+( RND 4*40): ; 1 = y - baddies start on bottom 3 rungs
     LET %A[(i*j)+2]=0: ; 2 = delay (used to be SPRITE)
@@ -488,6 +491,7 @@ DEFPROC loadAssets()
   LOAD "assets/banner.bin" BANK 25: ; header for non-game screens
   LOAD "assets/tokens.map" BANK 26
   LOAD "assets/tombs.map" BANK 27
+  LOAD "assets/mummy.pal" BANK 28
   LOAD "assets/font.bin" CODE 64000
 ENDPROC
 ;
@@ -516,6 +520,11 @@ DEFPROC initOnce()
   DPOKE 23606,63744: ; 64000-256
   LAYER 2,1
   PRINT CHR$ 2: ; trigger the font to be loaded
+
+  ; colour palette
+  PALETTE DIM 9
+  LAYER PALETTE 0 BANK 28,0
+  LAYER PALETTE 0
 
   POKE 23658,0: ; turn off CAPS LOCK (for menu items)
 ENDPROC
@@ -769,7 +778,7 @@ DEFPROC welcome()
     IF c$="o" THEN PROC optionsScreen(): PROC playScreen()
   REPEAT UNTIL c$="s" OR IN 31=16
 
-  LAYER CLEAR : PALETTE CLEAR
+  LAYER CLEAR
 
 ENDPROC
 ;
