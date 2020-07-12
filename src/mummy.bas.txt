@@ -8,6 +8,7 @@ RUN AT 3: REM @ 28Mhz
 ; ************ TODO ***************
 ; - [ ] (bug) on start of next level you're thrown out of the beginning
 ; - [ ] (req) Hi-score(?)
+; - [ ] (bug) You ded doesn't draw over sprites
 ; - [ ] (feat) "Get outta there" / "now find the archaeologist" / "find that key!" marquee
 ; - [ ] (feat) AI for baddie & dumb baddies
 ; - [ ] (feat) Improve background tile/walkway image
@@ -709,7 +710,7 @@ DEFPROC helpScreen()
   PRINT AT %y+2,1;"failed pyramid plundering."
   PRINT AT %y+5,1;"Navigate five catacombs, avoiding"
   PRINT AT %y+6,1;"the guardians, rescue those muppets"
-  PRINT AT %y+7,1;"and bring them back to Blighty"
+  PRINT AT %y+7,1;"and bring them back to Blighty."
   PAPER 0: INK 252
   PRINT AT %y+12,24;"Continue..."
   PAPER 252: INK 0
