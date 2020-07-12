@@ -9,11 +9,11 @@ RUN AT 3: REM @ 28Mhz
 ; - [ ] (bug) on start of next level you're thrown out of the beginning
 ; - [ ] (req) Game over - Win state
 ; - [ ] (req) Hi-score(?)
-; - [ ] (feat) Change colours of tombs between each level
 ; - [ ] (feat) "Get outta there" / "now find the archaeologist" / "find that key!" marquee
 ; - [ ] (feat) AI for baddie & dumb baddies
 ; - [ ] (feat) Improve background tile/walkway image
 ; - [~] Welcome screen / start game
+; - [x] (feat) Change colours of tombs between each level
 ; - [x] (feat) When player tries to turn 1 step away from a turn, "help" them and jump over it
 ; - [x] (bug) baddies are faster than player (rendering is simpler) (5: baddie slow, 4: baddie same speed)
 ; - [x] (feat) Crack effect on tomb edge
@@ -36,6 +36,7 @@ RUN AT 3: REM @ 28Mhz
 ; %A[] = baddie array (allows for > 64 elements)
 ; %b = baddie index
 ; %c = baddie count
+; %C[] = palette colours for tombs
 ; %d = player sprite flags (mirror, etc)
 ; %n = delta time counter (only used during dev, but needs to be reserved)
 ; %l = player lives
@@ -52,7 +53,7 @@ RUN AT 3: REM @ 28Mhz
 ; %y = player y
 ; %z = speed (for both baddie and player) - calculated based on DIFFICULTY
 ; --- non int vars ---
-; DIFFICULTY(3) = how smart the baddies's are (currently not!)
+; DIFFICULTY(3) = how many lives you start with
 ; LEVEL(1) = current level
 ; SPEED(3) = how fast the baddies are
 ; PLAYING = bool like - whether we're in game or not (in menus)
@@ -78,7 +79,7 @@ RUN AT 3: REM @ 28Mhz
 ;PROC dT()
 ;PROC splash()
 
-DEBUG=0
+DEBUG=1
 SPRITEON=1
 
 ON ERROR PROC exit()
@@ -259,16 +260,6 @@ DEFPROC treadMark(): ;down=0,up=2,left=4,right=6
   %P=%$ffff: ; now we're not moving
 ENDPROC
 ;
-; change direction and face the goodie
-;
-DEFPROC chaseGoodie(): ; UNUSED
-  ; if baddie(x) = goodie(x)
-  IF %y=0 THEN ENDPROC =%1
-  IF %y=240 THEN ENDPROC =%0
-  IF %f <> (x+32) THEN IF %f < (x+32) THEN ENDPROC =%2: ELSE IF %g < (y+48) THEN ENDPROC =%0: ELSE ENDPROC =%1
-
-ENDPROC =%3
-;
 ; handle baddies
 ;
 DEFPROC updateBaddie()
@@ -281,12 +272,7 @@ DEFPROC updateBaddie()
   ; select a random direction 0-3 is valid, but if we have a random value higher
   ; then decide whether the baddie should chase the goodie, or keep going in the
   ; current direction
-  ; DIFFICULTY is 1-5 - if 1, then the baddie is heading for you.
-  ; if 5 it's entirely random
-  ; otherwise it's 1 / DIFFICULTY * 2 rolls they go towards you or away
-  ; but also roll the dice to decide whether they're even going to turn
   %j=% RND 12
-  ;IF %j > 3 THEN : ELSE IF % RND ( INT {DIFFICULTY}*3)=0 THEN IF %f <> (x+32) THEN IF %f < (x+32) THEN %j=%2: ELSE IF %g < (y+48) THEN %j=%0: ELSE %j=%1: ELSE %j=%A[i+3]:
   IF %j > 3 THEN %j=%A[i+3]
 
   ; if they're on the edge of the map, don't let them walk off
@@ -508,6 +494,12 @@ DEFPROC initOnce()
   %S(4)=%6
   %S(5)=%4
 
+  %C(1)=%0
+  %C(2)=%16
+  %C(3)=%236
+  %C(4)=%50
+  %C(5)=%128
+
   MUSIC= NOT DEBUG
 
   ; music
@@ -553,16 +545,19 @@ ENDPROC
 DEFPROC nextLevel(l)
   RANDOMIZE 0
   LEVEL=l+1
-  %c=% INT {LEVEL}+1
-  ; count how many baddies are left over, and carry them across
-  ; %v=%0
-  ; FOR %j=1 TO %c
-  ;   IF %A[(j*6)+4]=$ff THEN %v=%v+1
-  ; NEXT %j
-  ; %c=%v+1
+  %j=% INT {LEVEL}
+  %c=%j+1: ; baddies increase with each level
 
-  ; adjust the cpu speed depending on the baddie count
-  ; IF %c < 3 THEN RUN AT 2: ELSE IF %c < 4 THEN RUN AT 3: ELSE RUN AT 3
+  IF %j=5 THEN PROC youWin(): ENDPROC
+
+  ; 0x150, 0x1f8, 0x1e8, 0x168
+  ; offset values:
+  ; yellow (0), orange (16), purple (236), ice blue (50), green (128)
+  %i=%C(j):
+  LAYER PALETTE 0,33,%$150-i
+  LAYER PALETTE 0,34,%$1f8-i
+  LAYER PALETTE 0,35,%$1e8-i
+  LAYER PALETTE 0,36,%$168-i
 
   PROC initSprites()
   PROC initBaddies()
@@ -578,11 +573,9 @@ DEFPROC nextLevel(l)
 
   ; show how many archaeologist's are left to save
   FOR %i=2 TO LEVEL
-    ;   SPRITE %55+i,%168+(i*16),%24,52,1
     SPRITE %55+i,%290,%14+(i*18),52,1
   NEXT %i
   FOR %i=LEVEL+1 TO 6
-    ;   SPRITE %55+i,%168+(i*16),%24,53,1
     SPRITE %55+i,%290,%14+(i*18),53,1
   NEXT %i
 
