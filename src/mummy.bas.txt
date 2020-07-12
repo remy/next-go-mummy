@@ -7,12 +7,12 @@ RUN AT 3: REM @ 28Mhz
 ;
 ; ************ TODO ***************
 ; - [ ] (bug) on start of next level you're thrown out of the beginning
-; - [ ] (req) Game over - Win state
 ; - [ ] (req) Hi-score(?)
 ; - [ ] (feat) "Get outta there" / "now find the archaeologist" / "find that key!" marquee
 ; - [ ] (feat) AI for baddie & dumb baddies
 ; - [ ] (feat) Improve background tile/walkway image
 ; - [~] Welcome screen / start game
+; - [x] (req) Game over - Win state
 ; - [x] (feat) Change colours of tombs between each level
 ; - [x] (feat) When player tries to turn 1 step away from a turn, "help" them and jump over it
 ; - [x] (bug) baddies are faster than player (rendering is simpler) (5: baddie slow, 4: baddie same speed)
@@ -79,7 +79,7 @@ RUN AT 3: REM @ 28Mhz
 ;PROC dT()
 ;PROC splash()
 
-DEBUG=1
+DEBUG=0
 SPRITEON=1
 
 ON ERROR PROC exit()
@@ -93,10 +93,10 @@ DEFPROC mainLoop()
     REPEAT
       ;IF DEBUG THEN IF INKEY$ ="s" THEN SPRITEON= NOT SPRITEON: SPRITE PRINT SPRITEON
       ;IF DEBUG THEN PRINT AT %1,%0;"mem=";%65536- USR 7962;" ": ; memory available....
-      IF DEBUG THEN IF INKEY$ ="t" THEN %t=0: ; FIXME remove TESTING ONLY
+      ;IF DEBUG THEN IF INKEY$ ="t" THEN %t=0: ; FIXME remove TESTING ONLY
       PROC updateLoop(): ; update logic and render
     REPEAT UNTIL %l=0 OR (t=0): ; until zero lives
-    IF %t=0 THEN PROC nextLevel(LEVEL): ELSE PROC gameOver(): PROC initNewGame()
+    IF %t=0 THEN PROC nextLevel(LEVEL+1): ELSE PROC gameOver(): PROC initNewGame()
   REPEAT UNTIL 0: ; repeat forever
 ENDPROC
 ;
@@ -351,6 +351,7 @@ DEFPROC pad(%w)
 ENDPROC =""
 ;
 DEFPROC printScore()
+  w$=""
   IF %w < 1001 THEN PROC pad(%w) TO w$
   PRINT AT 0,0;"Score ";w$;%w
 ENDPROC
@@ -512,6 +513,8 @@ DEFPROC initOnce()
   DPOKE 23606,63744: ; 64000-256
   LAYER 2,1
   PRINT CHR$ 2: ; trigger the font to be loaded
+  ; reduce the font into 7x8 (bit more space to write)
+  PRINT CHR$ 30; CHR$ 7; CHR$ 31; CHR$ 7
 
   ; colour palette
   PALETTE DIM 9
@@ -530,6 +533,35 @@ DEFPROC initGameVars()
   LET %t=%3
 ENDPROC
 ;
+DEFPROC youWin()
+  LEVEL=1
+
+  SPRITE PRINT 0
+  PROC header()
+
+  LET %y=6
+
+  PRINT AT 0,0; CHR$ 30; CHR$ 7; CHR$ 31; CHR$ 7
+
+  PRINT AT %y-1,12; CHR$ 29; CHR$ 1;"YOU DID IT!!!"; CHR$ 29; CHR$ 0
+  PRINT AT %y+2,1;"You saved all five of the "
+  PRINT AT %y+3,1;"archaeologists. They're safe back"
+  PRINT AT %y+4,1;"home drinking tea and dunking"
+  PRINT AT %y+5,1;"biscuits. Great work!"
+
+  PRINT AT %y+8,1;"But...a hero's work is never done."
+  PRINT AT %y+9,1;"More archaeologists have gone"
+  PRINT AT %y+10,1;"walkies, and they need your help."
+  PRINT AT %y+12,1;"Will you survive the challenge?"
+
+  PAPER 0: INK 252
+  PRINT AT %y+14,17;"Onward adventurer!"
+  PAPER 252: INK 0
+
+  REPEAT : REPEAT UNTIL INKEY$ =""
+  REPEAT : REPEAT UNTIL INKEY$ <> ""
+ENDPROC
+;
 DEFPROC initNewGame()
   %w=0: ; score
   ; define player and game state
@@ -539,16 +571,19 @@ DEFPROC initNewGame()
   PROC welcome()
   ;
   PLAYING=1
-  PROC nextLevel(0)
+  PROC nextLevel(1)
 ENDPROC
 ;
 DEFPROC nextLevel(l)
   RANDOMIZE 0
-  LEVEL=l+1
+  LEVEL=l
+  IF LEVEL=6 THEN PROC youWin()
+
   %j=% INT {LEVEL}
+
+
   %c=%j+1: ; baddies increase with each level
 
-  IF %j=5 THEN PROC youWin(): ENDPROC
 
   ; 0x150, 0x1f8, 0x1e8, 0x168
   ; offset values:
@@ -605,37 +640,37 @@ DEFPROC optionsScreen()
   DIFFICULTY=0
   %z=0
 
-  PRINT AT %y+1,2;"Speed of baddies [1-5] ? █"
-  PRINT AT %y+2,2;"    (1 is fastest)"
+  PRINT AT %y+1,5;"Speed of baddies [1-5] ? █"
+  PRINT AT %y+2,5;"    (1 is fastest)"
   PAUSE 100
   REPEAT
     SPRITE MOVE INT
     LET %j=% INT { CODE INKEY$ }-$30
     IF %j < 6 THEN %z=%j
   REPEAT UNTIL %z <> 0
-  PRINT AT %y+1,27;%z
+  PRINT AT %y+1,30;%z
   SPEED=%z
   %z=%S( INT {SPEED})
   REPEAT : REPEAT UNTIL INKEY$ ="": ; wait until the key is up again
 
-  PRINT AT %y+4,2;"Difficulty level [1-5] ? █"
-  PRINT AT %y+5,2;"    (1 is hardest)"
+  PRINT AT %y+4,5;"Difficulty level [1-5] ? █"
+  PRINT AT %y+5,5;"    (1 is hardest)"
   REPEAT
     SPRITE MOVE INT
     LET %j=% INT { CODE INKEY$ }-$30
     IF %j < 6 THEN DIFFICULTY=%j
   REPEAT UNTIL DIFFICULTY <> 0
-  PRINT AT %y+4,27;DIFFICULTY
+  PRINT AT %y+4,30;DIFFICULTY
 
   REPEAT : REPEAT UNTIL INKEY$ ="": ; wait until the key is up again
 
   MUSIC=2
-  PRINT AT %y+7,2;"Background music [Y-N] ? █"
+  PRINT AT %y+7,5;"Background music [Y-N] ? █"
   REPEAT
     SPRITE MOVE INT
     c$= INKEY$
-    IF c$="n" THEN MUSIC=0: PRINT AT %y+7,27;"No"
-    IF c$="y" THEN MUSIC=1: PRINT AT %y+7,27;"Yes"
+    IF c$="n" THEN MUSIC=0: PRINT AT %y+7,30;"No"
+    IF c$="y" THEN MUSIC=1: PRINT AT %y+7,30;"Yes"
   REPEAT UNTIL MUSIC < 2
 
   IF MUSIC=0 THEN DRIVER 50,4: ELSE DRIVER 50,2: DRIVER 50,3
@@ -654,31 +689,35 @@ DEFPROC creditScreen()
   PRINT AT %y+3,1;"https://remysharp.com / @rem"
   PRINT AT %y+5,1;"Sprites by Remy's kids"
   PRINT AT %y+7,1;"Music by Richard Faulkner"
-  PRINT AT %y+9,1;"Triology font by ZX-SOFT"
+  ; font: https://spectrumcomputing.co.uk/entry/25364/ZX-Spectrum/The_8bit_Font_Collection
+  PRINT AT %y+9,1;"Font by Paul van der Laan"
 
   PAPER 0: INK 252
-  PRINT AT %y+13,19;" Continue..."
+  PRINT AT %y+13,24;"Continue..."
   PAPER 252: INK 0
 
-  REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
+  PAUSE 50: REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
 ENDPROC
 ;
 DEFPROC helpScreen()
   PROC header()
 
-  LET %y=7
+  LET %y=8
+  ; 123456789012345678901234567890123456 (total column count: 36)
   PRINT AT %y,1;"Rescue the original 1984"
   PRINT AT %y+1,1;"archaeologist party from their";
   PRINT AT %y+2,1;"failed pyramid plundering."
-  PRINT AT %y+4,1;"Navigate five tombs, avoiding"
-  PRINT AT %y+5,1;"the guardians, rescue those"
-  PRINT AT %y+6,1;"muppets and bring them"
-  PRINT AT %y+7,1;"back to Blighty."
+  PRINT AT %y+5,1;"Navigate five catacombs, avoiding"
+  PRINT AT %y+6,1;"the guardians, rescue those muppets"
+  PRINT AT %y+7,1;"and bring them back to Blighty"
   PAPER 0: INK 252
-  PRINT AT %y+13,19;" Continue..."
+  PRINT AT %y+12,24;"Continue..."
   PAPER 252: INK 0
-  REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
+
+  PAUSE 50: REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
   ; the tokens
+
+  LET %y=7
 
   PROC header()
   TILE DIM 27,24,4,8
@@ -688,15 +727,15 @@ DEFPROC helpScreen()
   TILE 4,3 AT 48,0 TO 2,%y+9
 
   PRINT AT %y+1,6;"Rescue this dude"
-  PRINT AT %y+4,6;"Key to escape the tomb"
+  PRINT AT %y+4,6;"Key to escape the catacomb"
   PRINT AT %y+7,6;"Vanquish a guardian"
   PRINT AT %y+10,6;"Gems means hi-scores"
 
   PAPER 0: INK 252
-  PRINT AT %y+13,19;" Continue..."
+  PRINT AT %y+13,24;"Continue..."
   PAPER 252: INK 0
 
-  REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
+  PAUSE 50: REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
 
   PROC header()
 
@@ -713,10 +752,10 @@ DEFPROC helpScreen()
   PRINT AT %y+11,2;"contents. Don't get chomped!"
 
   PAPER 0: INK 252
-  PRINT AT %y+13,19;" Continue..."
+  PRINT AT %y+13,24;"Continue..."
   PAPER 252: INK 0
 
-  REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
+  PAUSE 50: REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
 
   PROC creditScreen()
 
@@ -737,11 +776,15 @@ DEFPROC playScreen()
 
   LET %y=9
 
-  PRINT AT %y,4;"Rescue the archaeologists"
-  PRINT AT %y+2,6;"    Save the day!"
-  PRINT AT %y+4,6;"   Don't get eaten"
-  PRINT AT %y+11,0; PAPER 0; INK 252;"                                "
-  PRINT AT %y+12,0; PAPER 0; INK 252;"I-Instructions O-Options S-Start"
+  ; make the font massive :)
+  PRINT CHR$ 29; CHR$ 1
+
+  PRINT AT %y,6;"Rescue the archaeologists"
+  PRINT AT %y+2,8;"    Save the day!"
+  PRINT AT %y+4,8;"   Don't get eaten"
+  PRINT AT 0,0; CHR$ 29; CHR$ 0
+  BANK 11 ERASE %$2000,%$2000,0: ; last 4k is black
+  PRINT AT %y+12,0; PAPER 0; INK 252;"I-Instructions   O-Options    P-Play"
 
 ENDPROC
 ;
@@ -762,6 +805,7 @@ DEFPROC welcome()
   SPRITE CONTINUE 63,0 TO %x STEP -8 RUN , STOP ,46 TO 47, BIN 0001000,3,225
 
   CLS
+  PRINT AT 0,0; CHR$ 30; CHR$ 7; CHR$ 31; CHR$ 7
   PROC playScreen()
 
   REPEAT
@@ -769,7 +813,7 @@ DEFPROC welcome()
     c$= INKEY$
     IF c$="i" THEN PROC helpScreen(): PROC playScreen()
     IF c$="o" THEN PROC optionsScreen(): PROC playScreen()
-  REPEAT UNTIL c$="s" OR IN 31=16
+  REPEAT UNTIL c$="p" OR IN 31=16
 
   LAYER CLEAR
 
