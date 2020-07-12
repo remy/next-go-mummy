@@ -6,7 +6,6 @@
 RUN AT 3: REM @ 28Mhz
 ;
 ; ************ TODO ***************
-; - [ ] (feat) When player tries to turn 1 step away from a turn, "help" them and jump over it
 ; - [ ] (bug) on start of next level you're thrown out of the beginning
 ; - [ ] (req) Game over - Win state
 ; - [ ] (req) Hi-score(?)
@@ -15,6 +14,7 @@ RUN AT 3: REM @ 28Mhz
 ; - [ ] (feat) AI for baddie & dumb baddies
 ; - [ ] (feat) Improve background tile/walkway image
 ; - [~] Welcome screen / start game
+; - [x] (feat) When player tries to turn 1 step away from a turn, "help" them and jump over it
 ; - [x] (bug) baddies are faster than player (rendering is simpler) (5: baddie slow, 4: baddie same speed)
 ; - [x] (feat) Crack effect on tomb edge
 ; - [x] (perf) Don't call new round of poke on each level
@@ -40,7 +40,7 @@ RUN AT 3: REM @ 28Mhz
 ; %n = delta time counter (only used during dev, but needs to be reserved)
 ; %l = player lives
 ; %P = player last position, used for tread marks - initilised to $FFFF
-; %q = player last direction (whilst movement is engaged)
+; %q = player last direction (whilst movement is engaged) - used for movement hacks
 ; %r = (flag) player has scroll and can kill a mummy
 ; %s = player sprite
 ; %R() = used to pick random selection of hidden items
@@ -77,7 +77,7 @@ RUN AT 3: REM @ 28Mhz
 ;PROC dT()
 ;PROC splash()
 
-DEBUG=1
+DEBUG=0
 SPRITEON=1
 
 ON ERROR PROC exit()
@@ -104,7 +104,7 @@ DEFPROC updateLoop()
   LET %b=1: ; baddie loop
   REPEAT
     %i=%b*6: ; 6 props (easy to mess this up!)
-    ;IF % SPRITE CONTINUE b < 2 THEN PROC updateBaddie()
+    IF % SPRITE CONTINUE b < 2 THEN PROC updateBaddie()
     LET %b=%b+1
   REPEAT UNTIL %b=(c+1)
   SPRITE MOVE INT
@@ -124,10 +124,14 @@ DEFPROC updatePlayer(%z)
 
   ; NOTE I no longer do an early exit - this keeps the game speed constant, otherwise the baddies speed up
   ; IF %j&$0f=0 THEN LET %P=%$ffff: ENDPROC : ; play isn't moving, early exit
+  IF %j THEN IF %y MOD 40 OR (y > $ff) THEN IF %(j&@0011)=j THEN %j=%j+q: ; add the y direction
+  IF %j THEN IF %x MOD 48 THEN IF %(j&@1100)=j THEN %j=%j+q: ; add the x direction
 
-  ; if I can't move on x plane, check y
+  ; the last direction is stored in the up/down/left/right routines
+
+  ; If I can't move on the x plane,checky
   IF %x MOD 48 THEN : ELSE : IF %j&@0100 THEN PROC down(%z): ELSE IF %y > 0 AND (j&@1000) THEN PROC up(%z)
-  ; IF %P <> $ffff THEN
+
   PROC checkTomb(): ; %P = $ffff if they haven't moved
 
   IF %y MOD 40 OR (y > $ff) THEN : ELSE : IF %j&@0010 THEN PROC left(%z): ELSE IF %j&@0001 THEN PROC right(%z)
@@ -139,16 +143,18 @@ DEFPROC updatePlayer(%z)
   IF %t=1 THEN IF %j&@1000 AND (y=0) AND (x=96) THEN PROC up(%z):%t=0: SPRITE 64,%x+32,%y+48,%s,%d: ENDPROC
   IF %y=$FFF0 OR (y=$FFF8) THEN : ELSE : IF %y > $ff THEN : LET %y=0: ELSE IF %y > 160 THEN : LET %y=160
 
-  ; IF %P <> $ffff THEN
   PROC checkTomb()
 
+
+  ; render
   SPRITE 64,%x+32,%y+48,%s,%d
 
+  ; check if we're bumping into a baddie
   %i=% SPRITE OVER (64,1 TO c)
   IF %i=0 THEN ENDPROC
   SPRITE %i,,,,0
   %i=%i*6
-  IF %A[i+4]=0 THEN ENDPROC
+  IF %A[i+4]=0 THEN ENDPROC : ; ignore hidden zombies/inactive baddies
   %A[i+4]=0
   %A[i+5]=0
   IF %r=0 THEN PROC takeLife(): ELSE %r=0
@@ -318,6 +324,7 @@ DEFPROC takeLife()
 ENDPROC
 ;
 DEFPROC up(%z): ; move up
+  %q=8
   %P=2
   %y=%y-z
   %d=%d^@1000
@@ -325,6 +332,7 @@ DEFPROC up(%z): ; move up
 ENDPROC
 ;
 DEFPROC down(%z): ; move down
+  %q=4
   %P=0
   %y=%y+z
   %d=%d^@1000
@@ -332,6 +340,7 @@ DEFPROC down(%z): ; move down
 ENDPROC
 ;
 DEFPROC left(%z): ; move left
+  %q=2
   %P=4
   %x=%x-z
   %d=%@1001
@@ -339,6 +348,7 @@ DEFPROC left(%z): ; move left
 ENDPROC
 ;
 DEFPROC right(%z): ; move right
+  %q=1
   %P=6
   %x=%x+z
   %d=%@0001
