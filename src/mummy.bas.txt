@@ -146,10 +146,11 @@ DEFPROC updatePlayer(%z)
   IF %t=1 THEN IF %j&@1000 AND (y=0) AND (x=96) THEN PROC up(%z):%t=0: SPRITE 64,%x+32,%y+48,%s,%d: ENDPROC
   IF %y=$FFF0 OR (y=$FFF8) THEN : ELSE : IF %y > $ff THEN : LET %y=0: ELSE IF %y > 160 THEN : LET %y=160
 
-  PROC checkTomb()
-
   ; render
   SPRITE 64,%x+32,%y+48,%s,%d
+
+  ; check the 2nd tomb _after_ sprite render to help smooth out the movement
+  PROC checkTomb()
 
   ; check if we're bumping into a baddie
   %i=% SPRITE OVER (64,1 TO c)
@@ -716,11 +717,12 @@ DEFPROC helpScreen()
   PAPER 252: INK 0
 
   PAUSE 50: REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
-  ; the tokens
 
   LET %y=7
 
   PROC header()
+
+  ; the tokens from tombs.map
   TILE DIM 27,24,4,8
   TILE 4,3 AT  0,0 TO 2,%y
   TILE 4,3 AT 12,0 TO 2,%y+3
