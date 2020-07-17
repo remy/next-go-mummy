@@ -9,6 +9,7 @@ RUN AT 3: REM @ 28Mhz
 ; - [ ] (bug) on start of next level you're thrown out of the beginning
 ; - [ ] (req) Hi-score(?)
 ; - [ ] (bug) You ded doesn't draw over sprites
+; - [ ] (feat) Can I colour the border?
 ; - [ ] (feat) "Get outta there" / "now find the archaeologist" / "find that key!" marquee
 ; - [ ] (feat) AI for baddie & dumb baddies
 ; - [ ] (feat) Improve background tile/walkway image
@@ -94,7 +95,7 @@ DEFPROC mainLoop()
     REPEAT
       ;IF DEBUG THEN IF INKEY$ ="s" THEN SPRITEON= NOT SPRITEON: SPRITE PRINT SPRITEON
       ;IF DEBUG THEN PRINT AT %1,%0;"mem=";%65536- USR 7962;" ": ; memory available....
-      ;IF DEBUG THEN IF INKEY$ ="t" THEN %t=0: ; FIXME remove TESTING ONLY
+      IF DEBUG THEN IF INKEY$ ="t" THEN %t=0: ; FIXME remove TESTING ONLY
       PROC updateLoop(): ; update logic and render
     REPEAT UNTIL %l=0 OR (t=0): ; until zero lives
     IF %t=0 THEN PROC nextLevel(LEVEL+1): ELSE PROC gameOver(): PROC initNewGame()
@@ -369,7 +370,16 @@ DEFPROC initSprites()
   TILE DIM 27,0,4,8: ; swap to our tomb tile set
   SPRITE STOP : ; switch to batching (though pretty sure this isn't required)
 
-  PAPER 0: INK 236: BORDER 6: ;background black (6 = yellow), text white
+  PROC setBorder(%$168-C( INT {LEVEL}))
+  LAYER 2,1: ; re-select our original layer
+  PAPER 0: INK 236
+ENDPROC
+;
+DEFPROC setBorder(%n)
+  LAYER 1,0: PALETTE DIM 9
+  BANK 28 DPOKE %(512+32),%((n&1) << 8)+(n >> 1): ; poke 16bit little endian next colour
+  BORDER 0
+  LAYER PALETTE 0 BANK 28,512
 ENDPROC
 ;
 DEFPROC gameOver()
@@ -467,7 +477,6 @@ DEFPROC loadAssets()
   LAYER CLEAR
   LAYER 2,1
   PAPER 252: INK 0: BORDER 0:
-  ;CLS
   SPRITE CLEAR
   ; allows for stop and start when music is running still
   ON ERROR CONTINUE : DRIVER 50,4: ON ERROR
