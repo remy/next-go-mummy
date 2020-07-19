@@ -7,13 +7,16 @@ RUN AT 3: REM @ 28Mhz
 ;
 ; ************ TODO ***************
 ; - [ ] (bug) on start of next level you're thrown out of the beginning
+; - [ ] (bug) Score position is off when you complete 5 levels
 ; - [ ] (req) Hi-score(?)
-; - [ ] (bug) You ded doesn't draw over sprites
-; - [ ] (feat) Can I colour the border?
+; - [ ] (feat) Add pause support
 ; - [ ] (feat) "Get outta there" / "now find the archaeologist" / "find that key!" marquee
 ; - [ ] (feat) AI for baddie & dumb baddies
 ; - [ ] (feat) Improve background tile/walkway image
 ; - [~] Welcome screen / start game
+; - [x] (bug) initial life number is incorrect
+; - [x] (bug) You ded doesn't draw over sprites
+; - [x] (feat) Can I colour the border?
 ; - [x] (req) Game over - Win state
 ; - [x] (feat) Change colours of tombs between each level
 ; - [x] (feat) When player tries to turn 1 step away from a turn, "help" them and jump over it
@@ -61,7 +64,7 @@ RUN AT 3: REM @ 28Mhz
 ; PLAYING = bool like - whether we're in game or not (in menus)
 ;
 ; TMP VARIABLES
-; i, j, k (but often shared) - then - e, f, g, h, m, o, q, u, v (unless documented, are disposable between DEFPROCS)
+; i, j, k (but often shared) - then - e, f, g, h, o, u, v (unless documented, are disposable between DEFPROCS)
 ;
 ; BANK INDEX
 ;
@@ -72,7 +75,7 @@ RUN AT 3: REM @ 28Mhz
 ; 23: tile map (used with BANK 19) (mummy.map)
 ; 24: tile data (sprites) (m-tiles.spr)
 ; 25: "oh mummy" layer 2 header (1/3 of layer 2) (banner.bin)
-; 26: info screen tokens (tokens.map)
+; 26: <removed>
 ; 27: tomb tiles - extra graphics arranged in a useful layout
 ; 28: palette - let's me change level colours without additional graphics
 ;
@@ -95,7 +98,10 @@ DEFPROC mainLoop()
     REPEAT
       ;IF DEBUG THEN IF INKEY$ ="s" THEN SPRITEON= NOT SPRITEON: SPRITE PRINT SPRITEON
       ;IF DEBUG THEN PRINT AT %1,%0;"mem=";%65536- USR 7962;" ": ; memory available....
-      IF DEBUG THEN IF INKEY$ ="t" THEN %t=0: ; FIXME remove TESTING ONLY
+;      IF DEBUG THEN
+IF INKEY$ ="t" THEN %t=0: ; FIXME remove TESTING ONLY
+;       IF DEBUG THEN
+IF INKEY$ ="d" THEN PROC takeLife(): ; FIXME remove TESTING ONLY
       PROC updateLoop(): ; update logic and render
     REPEAT UNTIL %l=0 OR (t=0): ; until zero lives
     IF %t=0 THEN PROC nextLevel(LEVEL+1): ELSE PROC gameOver(): PROC initNewGame()
@@ -356,7 +362,7 @@ ENDPROC =""
 DEFPROC printScore()
   w$=""
   IF %w < 1001 THEN PROC pad(%w) TO w$
-  PRINT AT 0,0;"Score ";w$;%w
+  PRINT AT 0,6;w$;%w
 ENDPROC
 ;
 ; init functions
@@ -371,7 +377,6 @@ DEFPROC initSprites()
   SPRITE STOP : ; switch to batching (though pretty sure this isn't required)
 
   PROC setBorder(%$168-C( INT {LEVEL}))
-  LAYER 2,1: ; re-select our original layer
   PAPER 0: INK 236
 ENDPROC
 ;
@@ -380,33 +385,29 @@ DEFPROC setBorder(%n)
   BANK 28 DPOKE %(512+32),%((n&1) << 8)+(n >> 1): ; poke 16bit little endian next colour
   BORDER 0
   LAYER PALETTE 0 BANK 28,512
+  LAYER 2,1: ; re-select our original layer
 ENDPROC
 ;
 DEFPROC gameOver()
   PAPER 0: INK 255
+
+  TILE DIM 26,0,16,8
+  TILE 16,3 AT 0,2 TO 8,9
+  TILE 16,3 AT 0,2 TO 8,14
   ; FIXME this should be done with a layer erase
   ; cheap black out
-  PRINT AT 7,7;"                  "
-  PRINT AT 8,7;"                  "
-  PRINT AT 9,7;"                  "
-  PRINT AT 10,7;"                  "
-  PRINT AT 11,7;"                  "
-  PRINT AT 12,7;"                  "
-  PRINT AT 13,7;"                  "
-  PRINT AT 14,7;"                  "
-  PRINT AT 15,7;"                  "
-  PRINT AT 16,7;"                  "
-  FOR %i=%0 TO %20: PAUSE 1: NEXT %i
-  PRINT AT 12,8;"G": FOR %i=%0 TO %20: PAUSE 1: NEXT %i
-  PRINT AT 12,10;"A": FOR %i=%0 TO %20: PAUSE 1: NEXT %i
-  PRINT AT 12,12;"M": FOR %i=%0 TO %20: PAUSE 1: NEXT %i
-  PRINT AT 12,14;"E": FOR %i=%0 TO %20: PAUSE 1: NEXT %i
-  PRINT AT 12,17;"O": FOR %i=%0 TO %20: PAUSE 1: NEXT %i
-  PRINT AT 12,19;"V": FOR %i=%0 TO %20: PAUSE 1: NEXT %i
-  PRINT AT 12,21;"E": FOR %i=%0 TO %20: PAUSE 1: NEXT %i
-  PRINT AT 12,23;"R": FOR %i=%0 TO %20: PAUSE 1: NEXT %i
-  INK 224
-  PRINT AT 15,7;"     you ded      "
+   FOR %i=%0 TO %20: PAUSE 1: NEXT %i
+   TILE 1,1 AT 0,0 TO 8,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; G
+   TILE 1,1 AT 1,0 TO 10,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; A
+   TILE 1,1 AT 2,0 TO 12,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; M
+   TILE 1,1 AT 3,0 TO 14,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; E
+   TILE 1,1 AT 4,0 TO 17,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; O
+   TILE 1,1 AT 5,0 TO 19,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; V
+   TILE 1,1 AT 6,0 TO 21,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; E
+   TILE 1,1 AT 7,0 TO 23,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; R
+   TILE 7,1 AT 0,1 TO 12,14: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; R
+
+;   PRINT AT 15,7;"     you ded      "
   REPEAT : REPEAT UNTIL INKEY$ <> "" OR IN 31=16:
   SPRITE CLEAR
 ENDPROC
@@ -487,7 +488,7 @@ DEFPROC loadAssets()
   LOAD "assets/mummy.map" BANK 23: ;load tile map created at https://zx.remysharp.com/sprites/
   LOAD "assets/m-tiles.spr" BANK 24: TILE BANK 24: ; load spritesheet for tiles
   LOAD "assets/banner.bin" BANK 25: ; header for non-game screens
-  LOAD "assets/tokens.map" BANK 26
+  LOAD "assets/gameover.map" BANK 26
   LOAD "assets/tombs.map" BANK 27
   LOAD "assets/mummy.pal" BANK 28
   LOAD "assets/font.bin" CODE 64000
@@ -574,14 +575,14 @@ DEFPROC youWin()
 ENDPROC
 ;
 DEFPROC initNewGame()
-  %w=0: ; score
+  PROC welcome()
+  LET %w=0: ; score
   ; define player and game state
   LET %z=%S( INT {SPEED}): ; baddie speed
-  LET %c=1: ; global badie count
   LET %l=% INT {DIFFICULTY}: ; lives
-  PROC welcome()
   ;
   PLAYING=1
+
   PROC nextLevel(1)
 ENDPROC
 ;
@@ -599,6 +600,7 @@ DEFPROC nextLevel(l)
   ; 0x150, 0x1f8, 0x1e8, 0x168
   ; offset values:
   ; yellow (0), orange (16), purple (236), ice blue (50), green (128)
+  LAYER 2,1
   %i=%C(j):
   LAYER PALETTE 0,33,%$150-i
   LAYER PALETTE 0,34,%$1f8-i
@@ -802,10 +804,12 @@ ENDPROC
 ;
 DEFPROC welcome()
   IF DEBUG THEN ENDPROC : ; FIXME remove
+  PROC setBorder(%0)
   PLAYING=0
   SPRITE CLEAR
   SPRITE BORDER 0
   SPRITE BANK 22
+  TILE BANK 24
   SPRITE STOP : ; switch to batching (though pretty sure this isn't required)
   SPRITE PRINT 1
 
