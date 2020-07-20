@@ -7,13 +7,13 @@ RUN AT 3: REM @ 28Mhz
 ;
 ; ************ TODO ***************
 ; - [ ] (bug) on start of next level you're thrown out of the beginning
-; - [ ] (bug) Score position is off when you complete 5 levels
 ; - [ ] (req) Hi-score(?)
 ; - [ ] (feat) Add pause support
 ; - [ ] (feat) "Get outta there" / "now find the archaeologist" / "find that key!" marquee
 ; - [ ] (feat) AI for baddie & dumb baddies
 ; - [ ] (feat) Improve background tile/walkway image
 ; - [~] Welcome screen / start game
+; - [x] (bug) Score position is off when you complete 5 levels
 ; - [x] (bug) initial life number is incorrect
 ; - [x] (bug) You ded doesn't draw over sprites
 ; - [x] (feat) Can I colour the border?
@@ -101,7 +101,7 @@ DEFPROC mainLoop()
 ;      IF DEBUG THEN
 IF INKEY$ ="t" THEN %t=0: ; FIXME remove TESTING ONLY
 ;       IF DEBUG THEN
-IF INKEY$ ="d" THEN PROC takeLife(): ; FIXME remove TESTING ONLY
+IF INKEY$ ="d" THEN %l=0: ; FIXME remove TESTING ONLY
       PROC updateLoop(): ; update logic and render
     REPEAT UNTIL %l=0 OR (t=0): ; until zero lives
     IF %t=0 THEN PROC nextLevel(LEVEL+1): ELSE PROC gameOver(): PROC initNewGame()
@@ -363,6 +363,7 @@ DEFPROC printScore()
   w$=""
   IF %w < 1001 THEN PROC pad(%w) TO w$
   PRINT AT 0,6;w$;%w
+  ;PRINT AT 1,0;"12345678"
 ENDPROC
 ;
 ; init functions
@@ -397,16 +398,16 @@ DEFPROC gameOver()
   TILE 16,3 AT 0,2 TO 8,9
   TILE 16,3 AT 0,2 TO 8,12
   TILE 16,3 AT 0,2 TO 8,15
-   FOR %i=%0 TO %20: PAUSE 1: NEXT %i
-   TILE 1,1 AT 0,0 TO 8,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; G
-   TILE 1,1 AT 1,0 TO 10,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; A
-   TILE 1,1 AT 2,0 TO 12,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; M
-   TILE 1,1 AT 3,0 TO 14,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; E
-   TILE 1,1 AT 4,0 TO 17,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; O
-   TILE 1,1 AT 5,0 TO 19,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; V
-   TILE 1,1 AT 6,0 TO 21,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; E
-   TILE 1,1 AT 7,0 TO 23,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; R
-   TILE 7,1 AT 0,1 TO 12,14: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; "you ded"
+  FOR %i=%0 TO %20: PAUSE 1: NEXT %i
+  TILE 1,1 AT 0,0 TO 8,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ;  G
+  TILE 1,1 AT 1,0 TO 10,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; A
+  TILE 1,1 AT 2,0 TO 12,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; M
+  TILE 1,1 AT 3,0 TO 14,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; E
+  TILE 1,1 AT 4,0 TO 17,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; O
+  TILE 1,1 AT 5,0 TO 19,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; V
+  TILE 1,1 AT 6,0 TO 21,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; E
+  TILE 1,1 AT 7,0 TO 23,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; R
+  TILE 7,1 AT 0,1 TO 12,14: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; "you ded"
 
   REPEAT : REPEAT UNTIL INKEY$ <> "" OR IN 31=16:
   SPRITE CLEAR
@@ -526,7 +527,7 @@ DEFPROC initOnce()
   LAYER 2,1
   PRINT CHR$ 2: ; trigger the font to be loaded
   ; reduce the font into 7x8 (bit more space to write)
-  PRINT CHR$ 30; CHR$ 7; CHR$ 31; CHR$ 7
+  ;PRINT CHR$ 30; CHR$ 7; CHR$ 31; CHR$ 7
 
   ; colour palette
   PALETTE DIM 9
