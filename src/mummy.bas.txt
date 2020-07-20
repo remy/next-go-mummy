@@ -391,11 +391,12 @@ ENDPROC
 DEFPROC gameOver()
   PAPER 0: INK 255
 
+  ; note that this tiles with a black with priority set, so it will sit above sprites
+  LAYER 2,1
   TILE DIM 26,0,16,8
   TILE 16,3 AT 0,2 TO 8,9
-  TILE 16,3 AT 0,2 TO 8,14
-  ; FIXME this should be done with a layer erase
-  ; cheap black out
+  TILE 16,3 AT 0,2 TO 8,12
+  TILE 16,3 AT 0,2 TO 8,15
    FOR %i=%0 TO %20: PAUSE 1: NEXT %i
    TILE 1,1 AT 0,0 TO 8,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; G
    TILE 1,1 AT 1,0 TO 10,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; A
@@ -405,9 +406,8 @@ DEFPROC gameOver()
    TILE 1,1 AT 5,0 TO 19,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; V
    TILE 1,1 AT 6,0 TO 21,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; E
    TILE 1,1 AT 7,0 TO 23,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; R
-   TILE 7,1 AT 0,1 TO 12,14: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; R
+   TILE 7,1 AT 0,1 TO 12,14: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; "you ded"
 
-;   PRINT AT 15,7;"     you ded      "
   REPEAT : REPEAT UNTIL INKEY$ <> "" OR IN 31=16:
   SPRITE CLEAR
 ENDPROC
