@@ -7,6 +7,7 @@ RUN AT 3: REM @ 28Mhz
 ;
 ; ************ TODO ***************
 ; - [ ] (bug) on start of next level you're thrown out of the beginning
+; - [ ] (bug) score misaligned after I win
 ; - [ ] (req) Hi-score(?)
 ; - [ ] (feat) Add pause support
 ; - [ ] (feat) "Get outta there" / "now find the archaeologist" / "find that key!" marquee
@@ -97,11 +98,10 @@ DEFPROC mainLoop()
   REPEAT
     REPEAT
       ;IF DEBUG THEN IF INKEY$ ="s" THEN SPRITEON= NOT SPRITEON: SPRITE PRINT SPRITEON
-      ;IF DEBUG THEN PRINT AT %1,%0;"mem=";%65536- USR 7962;" ": ; memory available....
-;      IF DEBUG THEN
-IF INKEY$ ="t" THEN %t=0: ; FIXME remove TESTING ONLY
-;       IF DEBUG THEN
-IF INKEY$ ="d" THEN %l=0: ; FIXME remove TESTING ONLY
+      IF DEBUG THEN PRINT AT %1,%0;"mem=";%65536- USR 7962;" ": ; memory available....
+      IF DEBUG THEN IF INKEY$ ="t" THEN %t=0: ; FIXME remove TESTING ONLY
+      IF DEBUG THEN IF INKEY$ ="d" THEN %l=0: ; FIXME remove TESTING ONLY
+      IF DEBUG THEN IF INKEY$ ="w" THEN LEVEL=5:%t=0: ; FIXME remove TESTING ONLY
       PROC updateLoop(): ; update logic and render
     REPEAT UNTIL %l=0 OR (t=0): ; until zero lives
     IF %t=0 THEN PROC nextLevel(LEVEL+1): ELSE PROC gameOver(): PROC initNewGame()
@@ -118,6 +118,7 @@ DEFPROC updateLoop()
     LET %b=%b+1
   REPEAT UNTIL %b=(c+1)
   SPRITE MOVE INT
+  IF %m <> -1 THEN DRIVER 83,2,%m:%m=%-1: ; play the activated sound effect
   ;PROC dT() TO %f: PRINT AT 0,0;%c;"@";%f;" ": ; f big = bad, small = good
 ENDPROC
 ;
@@ -125,6 +126,10 @@ DEFPROC updatePlayer(%z)
   PROC treadMark(): ; put treadmarks on the place we're about to move away from
 
   LET %j= IN 31: ; check the joystick and then keys
+
+  ; help the player when turning corners - but only with the joystick, not the keyboard
+  IF %j THEN IF %y MOD 40 OR (y > $ff) THEN IF %(j&@0011)=j THEN %j=%j+q: ; add the y direction
+  IF %j THEN IF %x MOD 48 THEN IF %(j&@1100)=j THEN %j=%j+q: ; add the x direction
 
   ; NOTE: these shifts aren't always needed, but it makes the code consistent
   IF %( IN $fbfe >> 0&1^1) THEN LET %j=%j+@1000: ; Q
@@ -134,8 +139,6 @@ DEFPROC updatePlayer(%z)
 
   ; NOTE I no longer do an early exit - this keeps the game speed constant, otherwise the baddies speed up
   ; IF %j&$0f=0 THEN LET %P=%$ffff: ENDPROC : ; play isn't moving, early exit
-  IF %j THEN IF %y MOD 40 OR (y > $ff) THEN IF %(j&@0011)=j THEN %j=%j+q: ; add the y direction
-  IF %j THEN IF %x MOD 48 THEN IF %(j&@1100)=j THEN %j=%j+q: ; add the x direction
 
   ; the last direction is stored in the up/down/left/right routines
 
@@ -150,7 +153,7 @@ DEFPROC updatePlayer(%z)
   ; so it'll be up in the 65K range, so this check against 255 is good enough
   IF %x > $ff THEN : LET %x=0: ELSE IF %x > 240 THEN : LET %x=240
 
-  IF %t=1 THEN IF %j&@1000 AND (y=0) AND (x=96) THEN PROC up(%z):%t=0: SPRITE 64,%x+32,%y+48,%s,%d: ENDPROC
+  IF %t=1 THEN IF %j&@1000 AND (y=0) AND (x=96) THEN PROC up(%z):%t=0:%m=2: SPRITE 64,%x+32,%y+48,%s,%d: ENDPROC
   IF %y=$FFF0 OR (y=$FFF8) THEN : ELSE : IF %y > $ff THEN : LET %y=0: ELSE IF %y > 160 THEN : LET %y=160
 
   ; render
@@ -167,7 +170,7 @@ DEFPROC updatePlayer(%z)
   IF %A[i+4]=0 THEN ENDPROC : ; ignore hidden zombies/inactive baddies
   %A[i+4]=0
   %A[i+5]=0
-  IF %r=0 THEN PROC takeLife(): ELSE %r=0
+  IF %r=0 THEN :%m=5: PROC takeLife(): ELSE %r=0
 ENDPROC
 ;
 DEFPROC checkTomb()
@@ -235,8 +238,7 @@ DEFPROC crackEdge(%k,%i,%j,%o,%a,%b)
   ; open tomb (ie. slightly different colour)
   TILE 4,3 AT 0,3 TO %u,%v
 
-  ; early exit
-  ;IF %j=0 THEN %T(i)=%j+8: ENDPROC
+  IF %m=4 THEN : ELSE : IF %j=0 OR (j=4) THEN %m=0: ELSE IF %j > 2 THEN %m=1: ELSE %m=4:
 
   TILE 4,3 AT 0,%(3*j)+3 TO %u,%v
 
@@ -398,7 +400,10 @@ DEFPROC gameOver()
   TILE 16,3 AT 0,2 TO 8,9
   TILE 16,3 AT 0,2 TO 8,12
   TILE 16,3 AT 0,2 TO 8,15
-  FOR %i=%0 TO %20: PAUSE 1: NEXT %i
+
+  ;POKE %60001,4: RUN AT 0: RANDOMIZE % USR 60000: RUN AT 3
+  DRIVER 83,2,3
+  ;FOR %i=%0 TO %20: PAUSE 1: NEXT %i
   TILE 1,1 AT 0,0 TO 8,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ;  G
   TILE 1,1 AT 1,0 TO 10,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; A
   TILE 1,1 AT 2,0 TO 12,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; M
@@ -484,6 +489,11 @@ DEFPROC loadAssets()
   ON ERROR CONTINUE : DRIVER 50,4: ON ERROR
   ON ERROR CONTINUE :.uninstall "assets/nextdaw.drv" : ON ERROR
   .install "assets/nextdaw.drv"
+  .install "assets/ayfx.drv"
+
+  ; note: I'm being a bit lavish with my banks here, but I could pretty easily
+  ; upgrade the .map files to exist in a single file and single bank, just use
+  ; offsets (same goes with .pal, .adb and .bin)
   LOAD "assets/mummy.ndr" BANK 20: ; plus bank 21 for music
   LOAD "assets/m-sprites.spr" BANK 22: SPRITE BANK 22
   LOAD "assets/mummy.map" BANK 23: ;load tile map created at https://zx.remysharp.com/sprites/
@@ -492,12 +502,14 @@ DEFPROC loadAssets()
   LOAD "assets/gameover.map" BANK 26
   LOAD "assets/tombs.map" BANK 27
   LOAD "assets/mummy.pal" BANK 28
+  LOAD "assets/mummy.afb" BANK 29: ; sound effects
   LOAD "assets/font.bin" CODE 64000
 ENDPROC
 ;
 DEFPROC initOnce()
   PROC loadAssets(): ; separate load allows for future single tape loader
 
+  %m=%-1
   PLAYING=0
   DIFFICULTY=3
   SPEED=3
@@ -517,10 +529,13 @@ DEFPROC initOnce()
   MUSIC= NOT DEBUG
 
   ; music
-  DRIVER 50,1,0,20: ; BANK21
+  DRIVER 50,1,0,20: ; BANK20
   DRIVER 50,1,1,21: ; BANK21
   DRIVER 50,2: ; Init Song
   IF MUSIC THEN DRIVER 50,3: ; Play Song
+
+  ; sound effects
+  DRIVER 83,1,29
 
   ; font
   DPOKE 23606,63744: ; 64000-256
@@ -548,6 +563,8 @@ ENDPROC
 ;
 DEFPROC youWin()
   LEVEL=1
+  PROC setBorder(%0)
+  SPEED=SPEED+1
 
   SPRITE PRINT 0
   PROC header()
@@ -572,7 +589,7 @@ DEFPROC youWin()
   PAPER 252: INK 0
 
   REPEAT : REPEAT UNTIL INKEY$ =""
-  REPEAT : REPEAT UNTIL INKEY$ <> ""
+  REPEAT : REPEAT UNTIL INKEY$ <> "" OR IN 31=16:
 ENDPROC
 ;
 DEFPROC initNewGame()
@@ -698,13 +715,13 @@ DEFPROC creditScreen()
 
   LET %y=7
 
-  PRINT AT %y,1;"CREDITS"
-  PRINT AT %y+2,1;"Written by Remy Sharp";
-  PRINT AT %y+3,1;"https://remysharp.com / @rem"
-  PRINT AT %y+5,1;"Sprites by Remy's kids"
-  PRINT AT %y+7,1;"Music by Richard Faulkner"
+  PRINT AT %y,2;"CREDITS"
+  PRINT AT %y+2,2;"Written by Remy Sharp";
+  PRINT AT %y+3,2;"https://remysharp.com / @rem"
+  PRINT AT %y+5,2;"Sprites by Remy's kids"
+  PRINT AT %y+7,2;"Music by Richard Faulkner"
   ; font: https://spectrumcomputing.co.uk/entry/25364/ZX-Spectrum/The_8bit_Font_Collection
-  PRINT AT %y+9,1;"Font by Paul van der Laan"
+  PRINT AT %y+9,2;"Font by Paul van der Laan"
 
   PAPER 0: INK 252
   PRINT AT %y+13,24;"Continue..."
@@ -718,12 +735,13 @@ DEFPROC helpScreen()
 
   LET %y=8
   ; 123456789012345678901234567890123456 (total column count: 36)
-  PRINT AT %y,1;"Rescue the original 1984"
-  PRINT AT %y+1,1;"archaeologist party from their";
-  PRINT AT %y+2,1;"failed pyramid plundering."
-  PRINT AT %y+5,1;"Navigate five catacombs, avoiding"
-  PRINT AT %y+6,1;"the guardians, rescue those muppets"
-  PRINT AT %y+7,1;"and bring them back to Blighty."
+  PRINT AT %y,2;"Rescue the original 1984"
+  PRINT AT %y+1,2;"archaeologist party from their";
+  PRINT AT %y+2,2;"failed pyramid plundering."
+  PRINT AT %y+5,2;"Navigate five catacombs, avoiding"
+  PRINT AT %y+6,2;"the guardians, rescue those"
+  PRINT AT %y+7,2;"muppets and bring them back"
+  PRINT AT %y+8,2;"to Blighty."
   PAPER 0: INK 252
   PRINT AT %y+12,24;"Continue..."
   PAPER 252: INK 0
