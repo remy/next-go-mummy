@@ -9,11 +9,11 @@ RUN AT 3: REM @ 28Mhz
 ; - [ ] (bug) on start of next level you're thrown out of the beginning
 ; - [ ] (bug) score misaligned after I win
 ; - [ ] (req) Hi-score(?)
-; - [ ] (feat) Add pause support
 ; - [ ] (feat) "Get outta there" / "now find the archaeologist" / "find that key!" marquee
 ; - [ ] (feat) AI for baddie & dumb baddies
 ; - [ ] (feat) Improve background tile/walkway image
 ; - [~] Welcome screen / start game
+; - [x] (feat) Add pause support
 ; - [x] (bug) Score position is off when you complete 5 levels
 ; - [x] (bug) initial life number is incorrect
 ; - [x] (bug) You ded doesn't draw over sprites
@@ -79,6 +79,7 @@ RUN AT 3: REM @ 28Mhz
 ; 26: <removed>
 ; 27: tomb tiles - extra graphics arranged in a useful layout
 ; 28: palette - let's me change level colours without additional graphics
+; 29: temp holding space for 1/3rd of layer 2 screen
 ;
 ; **********************************
 ;
@@ -98,7 +99,7 @@ DEFPROC mainLoop()
   REPEAT
     REPEAT
       ;IF DEBUG THEN IF INKEY$ ="s" THEN SPRITEON= NOT SPRITEON: SPRITE PRINT SPRITEON
-      IF DEBUG THEN PRINT AT %1,%0;"mem=";%65536- USR 7962;" ": ; memory available....
+      ;IF DEBUG THEN PRINT AT %1,%0;"mem=";%65536- USR 7962;" ": ; memory available....
       IF DEBUG THEN IF INKEY$ ="t" THEN %t=0: ; FIXME remove TESTING ONLY
       IF DEBUG THEN IF INKEY$ ="d" THEN %l=0: ; FIXME remove TESTING ONLY
       IF DEBUG THEN IF INKEY$ ="w" THEN LEVEL=5:%t=0: ; FIXME remove TESTING ONLY
@@ -117,8 +118,9 @@ DEFPROC updateLoop()
     IF % SPRITE CONTINUE b < 2 THEN PROC updateBaddie()
     LET %b=%b+1
   REPEAT UNTIL %b=(c+1)
+  IF INKEY$ ="h" THEN PROC pauseGame()
   SPRITE MOVE INT
-  IF %m <> -1 THEN DRIVER 83,2,%m:%m=%-1: ; play the activated sound effect
+  IF %m <> -1 THEN DRIVER 49,2,%m:%m=%-1: ; play the activated sound effect
   ;PROC dT() TO %f: PRINT AT 0,0;%c;"@";%f;" ": ; f big = bad, small = good
 ENDPROC
 ;
@@ -391,6 +393,40 @@ DEFPROC setBorder(%n)
   LAYER 2,1: ; re-select our original layer
 ENDPROC
 ;
+DEFPROC pauseGame()
+  ; note that this tiles with a black with priority set, so it will sit above sprites
+  LAYER 2,1
+
+  ; backup the screen
+  BANK 10 COPY TO 29
+
+  ; stop the music
+  DRIVER 50,4
+
+  ; paint it black
+  TILE DIM 26,0,16,8
+  TILE 16,3 AT 0,2 TO 8,8
+  TILE 16,3 AT 0,2 TO 8,11
+
+  %i=13
+  TILE 1,1 AT 10,0 TO %i+0,10: ;  P
+  TILE 1,1 AT 11,0 TO %i+1,10: ; A
+  TILE 1,1 AT 12,0 TO %i+2,10: ; U
+  TILE 1,1 AT 13,0 TO %i+3,10: ; S
+  TILE 1,1 AT 14,0 TO %i+4,10: ; E
+  TILE 1,1 AT 15,0 TO %i+5,10: ; D
+
+  REPEAT : REPEAT UNTIL INKEY$ =""
+  REPEAT : REPEAT UNTIL INKEY$ ="h"
+  REPEAT : REPEAT UNTIL INKEY$ =""
+
+  ; resume music if it wass on
+  IF MUSIC THEN DRIVER 50,2: DRIVER 50,3
+
+  ; restore the screen
+  BANK 29 COPY TO 10
+ENDPROC
+;
 DEFPROC gameOver()
   PAPER 0: INK 255
 
@@ -401,9 +437,8 @@ DEFPROC gameOver()
   TILE 16,3 AT 0,2 TO 8,12
   TILE 16,3 AT 0,2 TO 8,15
 
-  ;POKE %60001,4: RUN AT 0: RANDOMIZE % USR 60000: RUN AT 3
-  DRIVER 83,2,3
-  ;FOR %i=%0 TO %20: PAUSE 1: NEXT %i
+  DRIVER 49,2,3: ; play game over sound
+  FOR %i=%0 TO %20: PAUSE 1: NEXT %i
   TILE 1,1 AT 0,0 TO 8,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ;  G
   TILE 1,1 AT 1,0 TO 10,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; A
   TILE 1,1 AT 2,0 TO 12,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; M
@@ -489,6 +524,7 @@ DEFPROC loadAssets()
   ON ERROR CONTINUE : DRIVER 50,4: ON ERROR
   ON ERROR CONTINUE :.uninstall "assets/nextdaw.drv" : ON ERROR
   .install "assets/nextdaw.drv"
+  ON ERROR CONTINUE :.uninstall "assets/ayfx.drv" : ON ERROR
   .install "assets/ayfx.drv"
 
   ; note: I'm being a bit lavish with my banks here, but I could pretty easily
@@ -535,7 +571,7 @@ DEFPROC initOnce()
   IF MUSIC THEN DRIVER 50,3: ; Play Song
 
   ; sound effects
-  DRIVER 83,1,29
+  DRIVER 49,1,29
 
   ; font
   DPOKE 23606,63744: ; 64000-256
@@ -736,7 +772,7 @@ DEFPROC helpScreen()
   LET %y=8
   ; 123456789012345678901234567890123456 (total column count: 36)
   PRINT AT %y,2;"Rescue the original 1984"
-  PRINT AT %y+1,2;"archaeologist party from their";
+  PRINT AT %y+1,2;"archaeologist party from their"
   PRINT AT %y+2,2;"failed pyramid plundering."
   PRINT AT %y+5,2;"Navigate five catacombs, avoiding"
   PRINT AT %y+6,2;"the guardians, rescue those"
@@ -772,7 +808,7 @@ DEFPROC helpScreen()
 
   PROC header()
 
-  LET %y=7
+  LET %y=6
 
   PRINT AT %y,2;"CONTROLS"
   PRINT AT %y+2,2;"Kempton joystick and keyboard";
@@ -780,12 +816,13 @@ DEFPROC helpScreen()
   PRINT AT %y+5,2;"A= down"
   PRINT AT %y+6,2;"O= left"
   PRINT AT %y+7,2;"P= right"
+  PRINT AT %y+9,2;"H= halt / pause"
 
-  PRINT AT %y+10,2;"Surround a tomb to reveal the"
-  PRINT AT %y+11,2;"contents. Don't get chomped!"
+  PRINT AT %y+11,2;"Surround a tomb to reveal the"
+  PRINT AT %y+12,2;"contents. Don't get chomped!"
 
   PAPER 0: INK 252
-  PRINT AT %y+13,24;"Continue..."
+  PRINT AT %y+14,24;"Continue..."
   PAPER 252: INK 0
 
   PAUSE 50: REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
