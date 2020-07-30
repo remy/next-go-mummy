@@ -7,12 +7,12 @@ RUN AT 3: REM @ 28Mhz
 ;
 ; ************ TODO ***************
 ; - [ ] (bug) on start of next level you're thrown out of the beginning
-; - [ ] (bug) score misaligned after I win
 ; - [ ] (req) Hi-score(?)
 ; - [ ] (feat) "Get outta there" / "now find the archaeologist" / "find that key!" marquee
 ; - [ ] (feat) AI for baddie & dumb baddies
 ; - [ ] (feat) Improve background tile/walkway image
 ; - [~] Welcome screen / start game
+; - [x] (bug) score misaligned after I win
 ; - [x] (feat) Add pause support
 ; - [x] (bug) Score position is off when you complete 5 levels
 ; - [x] (bug) initial life number is incorrect
@@ -607,7 +607,7 @@ DEFPROC youWin()
 
   LET %y=6
 
-  PRINT AT 0,0; CHR$ 30; CHR$ 7; CHR$ 31; CHR$ 7
+  PROC narrowFont()
 
   PRINT AT %y-1,12; CHR$ 29; CHR$ 1;"YOU DID IT!!!"; CHR$ 29; CHR$ 0
   PRINT AT %y+2,1;"You saved all five of the "
@@ -620,8 +620,9 @@ DEFPROC youWin()
   PRINT AT %y+10,1;"walkies, and they need your help."
   PRINT AT %y+12,1;"Will you survive the challenge?"
 
+  PROC resetFont()
   PAPER 0: INK 252
-  PRINT AT %y+14,17;"Onward adventurer!"
+  PRINT AT %y+14,13;"Onward adventurer!"
   PAPER 252: INK 0
 
   REPEAT : REPEAT UNTIL INKEY$ =""
@@ -630,12 +631,12 @@ ENDPROC
 ;
 DEFPROC initNewGame()
   PROC welcome()
-  LET %w=0: ; score
+  %w=0: ; score
   ; define player and game state
-  LET %z=%S( INT {SPEED}): ; baddie speed
-  LET %l=% INT {DIFFICULTY}: ; lives
-  ;
+  %z=%S( INT {SPEED}): ; baddie speed
+  %l=% INT {DIFFICULTY}: ; lives
   PLAYING=1
+  PROC resetFont()
 
   PROC nextLevel(1)
 ENDPROC
@@ -647,9 +648,7 @@ DEFPROC nextLevel(l)
 
   %j=% INT {LEVEL}
 
-
   %c=%j+1: ; baddies increase with each level
-
 
   ; 0x150, 0x1f8, 0x1e8, 0x168
   ; offset values:
@@ -744,6 +743,14 @@ DEFPROC optionsScreen()
 
   REPEAT : REPEAT UNTIL INKEY$ ="": ; wait until the key is up again
 
+ENDPROC
+;
+DEFPROC narrowFont()
+  PRINT AT 0,0; CHR$ 30; CHR$ 7; CHR$ 31; CHR$ 7
+ENDPROC
+;
+DEFPROC resetFont()
+  PRINT AT 0,0; CHR$ 30; CHR$ 8; CHR$ 31; CHR$ 8
 ENDPROC
 ;
 DEFPROC creditScreen()
@@ -877,7 +884,7 @@ DEFPROC welcome()
   SPRITE CONTINUE 63,0 TO %x STEP -8 RUN , STOP ,46 TO 47, BIN 0001000,3,225
 
   CLS
-  PRINT AT 0,0; CHR$ 30; CHR$ 7; CHR$ 31; CHR$ 7
+  PROC narrowFont()
   PROC playScreen()
 
   REPEAT
