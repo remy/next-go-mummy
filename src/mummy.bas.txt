@@ -76,10 +76,12 @@ RUN AT 3: REM @ 28Mhz
 ; 23: tile map (used with BANK 19) (mummy.map)
 ; 24: tile data (sprites) (m-tiles.spr)
 ; 25: "oh mummy" layer 2 header (1/3 of layer 2) (banner.bin)
-; 26: <removed>
+; 26: game over/pause tiles
 ; 27: tomb tiles - extra graphics arranged in a useful layout
 ; 28: palette - let's me change level colours without additional graphics
-; 29: temp holding space for 1/3rd of layer 2 screen
+; 29: sound effects (mummy.afb)
+; 30: temp holding space for 1/3rd of layer 2 screen
+; 31-33: screen holding
 ;
 ; **********************************
 ;
@@ -534,12 +536,15 @@ DEFPROC loadAssets()
   LOAD "assets/m-sprites.spr" BANK 22: SPRITE BANK 22
   LOAD "assets/mummy.map" BANK 23: ;load tile map created at https://zx.remysharp.com/sprites/
   LOAD "assets/m-tiles.spr" BANK 24: TILE BANK 24: ; load spritesheet for tiles
-  LOAD "assets/banner.bin" BANK 25: ; header for non-game screens
   LOAD "assets/gameover.map" BANK 26
   LOAD "assets/tombs.map" BANK 27
   LOAD "assets/mummy.pal" BANK 28
   LOAD "assets/mummy.afb" BANK 29: ; sound effects
   LOAD "assets/font.bin" CODE 64000
+  ; bank 30 is used for temp layer 2,1 data
+  LOAD "assets/banner1.bin" BANK 31: ; header for non-game screens
+  LOAD "assets/banner2.bin" BANK 32: ; header for non-game screens
+  LOAD "assets/banner3.bin" BANK 33: ; header for non-game screens
 ENDPROC
 ;
 DEFPROC initOnce()
@@ -702,7 +707,7 @@ ENDPROC
 DEFPROC optionsScreen()
   PROC header()
 
-  LET %y=7
+  LET %y=9
   DIFFICULTY=0
   %z=0
 
@@ -756,7 +761,7 @@ ENDPROC
 DEFPROC creditScreen()
   PROC header()
 
-  LET %y=7
+  LET %y=9
 
   PRINT AT %y,2;"CREDITS"
   PRINT AT %y+2,2;"Written by Remy Sharp";
@@ -767,7 +772,7 @@ DEFPROC creditScreen()
   PRINT AT %y+9,2;"Font by Paul van der Laan"
 
   PAPER 0: INK 252
-  PRINT AT %y+13,24;"Continue..."
+  PRINT AT %y+11,24;"Continue..."
   PAPER 252: INK 0
 
   PAUSE 50: REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
@@ -776,7 +781,7 @@ ENDPROC
 DEFPROC helpScreen()
   PROC header()
 
-  LET %y=8
+  LET %y=9
   ; 123456789012345678901234567890123456 (total column count: 36)
   PRINT AT %y,2;"Rescue the original 1984"
   PRINT AT %y+1,2;"archaeologist party from their"
@@ -786,12 +791,12 @@ DEFPROC helpScreen()
   PRINT AT %y+7,2;"muppets and bring them back"
   PRINT AT %y+8,2;"to Blighty."
   PAPER 0: INK 252
-  PRINT AT %y+12,24;"Continue..."
+  PRINT AT %y+11,24;"Continue..."
   PAPER 252: INK 0
 
   PAUSE 50: REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
 
-  LET %y=7
+  LET %y=8
 
   PROC header()
 
@@ -808,7 +813,7 @@ DEFPROC helpScreen()
   PRINT AT %y+10,6;"Gems means hi-scores"
 
   PAPER 0: INK 252
-  PRINT AT %y+13,24;"Continue..."
+  PRINT AT %y+12,24;"Continue..."
   PAPER 252: INK 0
 
   PAUSE 50: REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
@@ -817,12 +822,12 @@ DEFPROC helpScreen()
 
   LET %y=6
 
-  PRINT AT %y,2;"CONTROLS"
-  PRINT AT %y+2,2;"Kempton joystick and keyboard";
-  PRINT AT %y+4,2;"Q= up"
-  PRINT AT %y+5,2;"A= down"
-  PRINT AT %y+6,2;"O= left"
-  PRINT AT %y+7,2;"P= right"
+  PRINT AT %y+3,2;"CONTROLS"
+  PRINT AT %y+5,2;"Kempton joystick and keyboard";
+  PRINT AT %y+7,2;"Q= up"
+  PRINT AT %y+8,18;"A= down"
+  PRINT AT %y+7,18;"O= left"
+  PRINT AT %y+8,2;"P= right"
   PRINT AT %y+9,2;"H= halt / pause"
 
   PRINT AT %y+11,2;"Surround a tomb to reveal the"
@@ -842,9 +847,11 @@ DEFPROC header()
   PAPER 252: INK 0: BORDER 0
   ; important: I'm not using CLS as this method is faster
   ; otherwise there's a visible screen clear and reset
-  BANK 25 COPY TO 9: ; "Oh Mummy header"
-  BANK 10 ERASE 252
-  BANK 11 ERASE %0,%$3000,252
+  BANK 31 COPY TO 9: ; "Oh Mummy header"
+  BANK 32 COPY TO 10: ; "Oh Mummy header"
+  BANK 33 COPY TO 11: ; "Oh Mummy header"
+;   BANK 10 ERASE 252
+;   BANK 11 ERASE %0,%$3000,252
   BANK 11 ERASE %$3000,%$1000,0: ; last 4k is black
 ENDPROC
 ;
@@ -860,8 +867,8 @@ DEFPROC playScreen()
   PRINT AT %y+2,8;"    Save the day!"
   PRINT AT %y+4,8;"   Don't get eaten"
   PRINT AT 0,0; CHR$ 29; CHR$ 0
-  BANK 11 ERASE %$2000,%$2000,0: ; last 4k is black
-  PRINT AT %y+12,0; PAPER 0; INK 252;"I-Instructions   O-Options    P-Play"
+  BANK 11 ERASE %$2400,%$1c00,0: ; last 4k is black
+  PRINT AT %21,0; PAPER 0; INK 252;"I-Instructions   O-Options    P-Play"
 
 ENDPROC
 ;
