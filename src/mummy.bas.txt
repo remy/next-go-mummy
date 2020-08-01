@@ -122,7 +122,7 @@ DEFPROC updateLoop()
     LET %b=%b+1
   REPEAT UNTIL %b=(c+1)
   IF INKEY$ ="h" THEN PROC pauseGame()
-  SPRITE MOVE INT
+  SPRITE MOVE : ; INT ;: without INT it seems to run a tiny bit smoother on tomb intersections
   IF %m <> -1 THEN DRIVER 49,2,%m:%m=%-1: ; play the activated sound effect
   ;PROC dT() TO %f: PRINT AT 0,0;%c;"@";%f;" ": ; f big = bad, small = good
 ENDPROC
