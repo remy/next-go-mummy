@@ -12,6 +12,7 @@ RUN AT 3: REM @ 28Mhz
 ; - [ ] (feat) AI for baddie & dumb baddies
 ; - [ ] (feat) Improve background tile/walkway image
 ; - [~] Welcome screen / start game
+; - [x] (bug) level 4 has corrupted image on tile 7 + 8 - can't replicate in cspect (I was poking a transparent colour in)
 ; - [x] (bug) score misaligned after I win
 ; - [x] (feat) Add pause support
 ; - [x] (bug) Score position is off when you complete 5 levels
@@ -564,7 +565,7 @@ DEFPROC initOnce()
   %C(1)=%0
   %C(2)=%16
   %C(3)=%236
-  %C(4)=%50
+  %C(4)=%82
   %C(5)=%128
 
   MUSIC= NOT DEBUG
