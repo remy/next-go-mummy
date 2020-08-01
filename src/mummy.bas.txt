@@ -423,9 +423,7 @@ DEFPROC pauseGame()
   TILE 1,1 AT 14,0 TO %i+4,10: ; E
   TILE 1,1 AT 15,0 TO %i+5,10: ; D
 
-  REPEAT : REPEAT UNTIL INKEY$ =""
-  REPEAT : REPEAT UNTIL INKEY$ <> "": ; any key to continue
-  REPEAT : REPEAT UNTIL INKEY$ =""
+  PROC pressAnyKey()
 
   ; resume music if it wass on
   IF MUSIC THEN DRIVER 50,2: DRIVER 50,3
@@ -459,7 +457,7 @@ DEFPROC gameOver()
   TILE 1,1 AT 7,0 TO 23,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; R
   TILE 7,1 AT 0,1 TO 12,14: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; "you ded"
 
-  REPEAT : REPEAT UNTIL INKEY$ <> "" OR IN 31=16:
+  PROC pressAnyKey()
   SPRITE CLEAR
 ENDPROC
 ;
@@ -641,8 +639,7 @@ DEFPROC youWin()
   PRINT AT %y+14,13;"Onward adventurer!"
   PAPER 252: INK 0
 
-  REPEAT : REPEAT UNTIL INKEY$ =""
-  REPEAT : REPEAT UNTIL INKEY$ <> "" OR IN 31=16:
+  PROC pressAnyKey()
 ENDPROC
 ;
 DEFPROC initNewGame()
@@ -734,6 +731,7 @@ DEFPROC optionsScreen()
   PRINT AT %y+1,30;%z
   SPEED=%z
   %z=%S( INT {SPEED})
+
   REPEAT : REPEAT UNTIL INKEY$ ="": ; wait until the key is up again
 
   PRINT AT %y+4,5;"Difficulty level [1-5] ? █"
@@ -787,7 +785,7 @@ DEFPROC creditScreen()
   PRINT AT %y+11,24;"Continue..."
   PAPER 252: INK 0
 
-  PAUSE 50: REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
+  PROC pressAnyKey()
 ENDPROC
 ;
 DEFPROC helpScreen()
@@ -806,7 +804,8 @@ DEFPROC helpScreen()
   PRINT AT %y+11,24;"Continue..."
   PAPER 252: INK 0
 
-  PAUSE 50: REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
+  ;PAUSE 50: REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
+  PROC pressAnyKey()
 
   LET %y=8
 
@@ -828,7 +827,8 @@ DEFPROC helpScreen()
   PRINT AT %y+12,24;"Continue..."
   PAPER 252: INK 0
 
-  PAUSE 50: REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
+  ;PAUSE 50: REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
+  PROC pressAnyKey()
 
   PROC header()
 
@@ -849,7 +849,8 @@ DEFPROC helpScreen()
   PRINT AT %y+14,24;"Continue..."
   PAPER 252: INK 0
 
-  PAUSE 50: REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
+  ;PAUSE 50: REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
+  PROC pressAnyKey()
 
   PROC creditScreen()
 
@@ -859,12 +860,9 @@ DEFPROC header()
   PAPER 252: INK 0: BORDER 0
   ; important: I'm not using CLS as this method is faster
   ; otherwise there's a visible screen clear and reset
-  BANK 31 COPY TO 9: ; "Oh Mummy header"
-  BANK 32 COPY TO 10: ; "Oh Mummy header"
-  BANK 33 COPY TO 11: ; "Oh Mummy header"
-;   BANK 10 ERASE 252
-;   BANK 11 ERASE %0,%$3000,252
-  BANK 11 ERASE %$3000,%$1000,0: ; last 4k is black
+  BANK 31 COPY TO 9: ; Oh Mummy header 1/3 (banner1.bin)
+  BANK 32 COPY TO 10: ; Oh Mummy header 2/3
+  BANK 33 COPY TO 11: ; Oh Mummy header 3/3
 ENDPROC
 ;
 DEFPROC playScreen()
@@ -907,19 +905,20 @@ DEFPROC welcome()
   PROC playScreen()
 
   REPEAT
-    SPRITE MOVE INT
     c$= INKEY$
     IF c$="i" THEN PROC helpScreen(): PROC playScreen()
     IF c$="o" THEN PROC optionsScreen(): PROC playScreen()
+    SPRITE MOVE INT
   REPEAT UNTIL c$="p" OR IN 31=16
 
   LAYER CLEAR
 
 ENDPROC
 ;
-DEFPROC waitForKeyClear()
-  REPEAT : REPEAT UNTIL INKEY$ <> ""
-  REPEAT : REPEAT UNTIL INKEY$ =""
+DEFPROC pressAnyKey()
+  REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ =""
+  REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> "" OR ( IN 31=16)
+  REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ =""
 ENDPROC
 ;
 DEFPROC reportErr()
