@@ -7,6 +7,9 @@ RUN AT 3: REM @ 28Mhz
 ;
 ; ************ TODO ***************
 ; - [ ] (bug) on start of next level you're thrown out of the beginning
+; - [ ] (bug) can't replicate: crashes at random during game play
+; - [ ] (bug) can't replicate: baddies freeze
+; - [ ] (bug) win game state - text over header
 ; - [ ] (req) Hi-score(?)
 ; - [ ] (feat) "Get outta there" / "now find the archaeologist" / "find that key!" marquee
 ; - [ ] (feat) AI for baddie & dumb baddies
@@ -82,7 +85,7 @@ RUN AT 3: REM @ 28Mhz
 ; 28: palette - let's me change level colours without additional graphics
 ; 29: sound effects (mummy.afb)
 ; 30: temp holding space for 1/3rd of layer 2 screen
-; 31-33: screen holding
+; 31-33: screen cover image
 ;
 ; **********************************
 ;
@@ -91,8 +94,10 @@ RUN AT 3: REM @ 28Mhz
 
 DEBUG=0
 SPRITEON=1
+BOOT=0
 
-ON ERROR PROC exit()
+IF BOOT OR ( NOT DEBUG) THEN ON ERROR PROC exit()
+
 PROC initOnce()
 PROC initNewGame()
 PROC mainLoop()
@@ -104,6 +109,7 @@ DEFPROC mainLoop()
       ;IF DEBUG THEN IF INKEY$ ="s" THEN SPRITEON= NOT SPRITEON: SPRITE PRINT SPRITEON
       ;IF DEBUG THEN PRINT AT %1,%0;"mem=";%65536- USR 7962;" ": ; memory available....
       IF DEBUG THEN IF INKEY$ ="t" THEN %t=0: ; FIXME remove TESTING ONLY
+
       IF DEBUG THEN IF INKEY$ ="d" THEN %l=0: ; FIXME remove TESTING ONLY
       IF DEBUG THEN IF INKEY$ ="w" THEN LEVEL=5:%t=0: ; FIXME remove TESTING ONLY
       PROC updateLoop(): ; update logic and render
@@ -383,9 +389,6 @@ DEFPROC initSprites()
   TILE 32,24: ; print tile for 14 tile cols by 12 tile rows
   TILE DIM 27,0,4,8: ; swap to our tomb tile set
   SPRITE STOP : ; switch to batching (though pretty sure this isn't required)
-
-  PROC setBorder(%$168-C( INT {LEVEL}))
-  PAPER 0: INK 236
 ENDPROC
 ;
 DEFPROC setBorder(%n)
@@ -394,6 +397,7 @@ DEFPROC setBorder(%n)
   BORDER 0
   LAYER PALETTE 0 BANK 28,512
   LAYER 2,1: ; re-select our original layer
+  PAPER 0: INK 255
 ENDPROC
 ;
 DEFPROC pauseGame()
@@ -660,13 +664,14 @@ DEFPROC nextLevel(l)
   ; offset values:
   ; yellow (0), orange (16), purple (236), ice blue (50), green (128)
   LAYER 2,1
-  %i=%C(j):
+  %i=%C(j): ;%i=%82 : ; used to test colours
   LAYER PALETTE 0,33,%$150-i
   LAYER PALETTE 0,34,%$1f8-i
   LAYER PALETTE 0,35,%$1e8-i
   LAYER PALETTE 0,36,%$168-i
 
   PROC initSprites()
+  PROC setBorder(%$168-i)
   PROC initBaddies()
   PROC initTombs()
   PROC initGameVars()
@@ -906,22 +911,36 @@ DEFPROC welcome()
 
 ENDPROC
 ;
-DEFPROC exit()
+DEFPROC waitForKeyClear()
+  REPEAT : REPEAT UNTIL INKEY$ <> ""
+  REPEAT : REPEAT UNTIL INKEY$ =""
+ENDPROC
+;
+DEFPROC reportErr()
   ERROR TO err,lin,st
-  ON ERROR
   e$= STR$ err
-  ; use break to exit mid-game
-  IF err > 9 THEN e$= CHR$ (err+55)
-  IF err=21 AND PLAYING THEN PROC initNewGame(): PROC mainLoop(): ENDPROC
-  IF DEBUG THEN : PRINT CHR$ 30,: PRINT "Error:";e$;", line:";lin;", statement:";st: REPEAT : REPEAT UNTIL INKEY$ ="": REPEAT : REPEAT UNTIL INKEY$ <> ""
 
-  DRIVER 50,4
-  .uninstall "assets/nextdaw.drv"
+  ON ERROR CONTINUE : DRIVER 50,4: ON ERROR
+  ON ERROR CONTINUE :.uninstall "assets/nextdaw.drv" : ON ERROR
+  ON ERROR CONTINUE :.uninstall "assets/ayfx.drv" : ON ERROR
+
+  LAYER 2,1
   PALETTE CLEAR
   LAYER CLEAR
   SPRITE CLEAR
   CLS
-  BORDER 7
+  BORDER 7: INK 0: PAPER 7
+  SPRITE PRINT 0: ; turn off sprites
+  PRINT CHR$ 30,
+  PRINT "Error:";e$;", line:";lin;", statement:";st
+  PROC waitForKeyClear()
+ENDPROC
+;
+DEFPROC exit()
+  ; use break to exit mid-game
+  IF err > 9 THEN e$= CHR$ (err+55)
+  IF PLAYING THEN PROC initNewGame(): PROC mainLoop(): ENDPROC
+
   GO TO 9999
 ENDPROC
 ;
