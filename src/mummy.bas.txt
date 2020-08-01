@@ -6,7 +6,6 @@
 RUN AT 3: REM @ 28Mhz
 ;
 ; ************ TODO ***************
-; - [?] (bug) on start of next level you're thrown out of the beginning
 ; - [ ] (bug) can't replicate: crashes at random during game play
 ; - [ ] (bug) can't replicate: baddies freeze
 ; - [ ] (bug) win game state - text over header
@@ -15,6 +14,8 @@ RUN AT 3: REM @ 28Mhz
 ; - [ ] (feat) AI for baddie & dumb baddies
 ; - [ ] (feat) Improve background tile/walkway image
 ; - [~] Welcome screen / start game
+; - [?] (bug) on start of next level you're thrown out of the beginning
+; - [x] (bug) without music, pause and unpause, sound effects break
 ; - [x] (bug) level 4 has corrupted image on tile 7 + 8 - can't replicate in cspect (I was poking a transparent colour in)
 ; - [x] (bug) score misaligned after I win
 ; - [x] (feat) Add pause support
@@ -84,7 +85,7 @@ RUN AT 3: REM @ 28Mhz
 ; 27: tomb tiles - extra graphics arranged in a useful layout
 ; 28: palette - let's me change level colours without additional graphics
 ; 29: sound effects (mummy.afb)
-; 30: temp holding space for 1/3rd of layer 2 screen
+; 30: temp holding space for 1/3rd of layer 2 screen (used for pause)
 ; 31-33: screen cover image
 ;
 ; **********************************
@@ -404,7 +405,7 @@ DEFPROC pauseGame()
   LAYER 2,1
 
   ; backup the screen
-  BANK 10 COPY TO 29
+  BANK 10 COPY TO 30
 
   ; stop the music
   DRIVER 50,4
@@ -430,7 +431,7 @@ DEFPROC pauseGame()
   IF MUSIC THEN DRIVER 50,2: DRIVER 50,3
 
   ; restore the screen
-  BANK 29 COPY TO 10
+  BANK 30 COPY TO 10
 
   ; put original tiles back
   TILE DIM 27,0,4,8
