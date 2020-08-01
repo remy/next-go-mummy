@@ -6,7 +6,7 @@
 RUN AT 3: REM @ 28Mhz
 ;
 ; ************ TODO ***************
-; - [ ] (bug) on start of next level you're thrown out of the beginning
+; - [?] (bug) on start of next level you're thrown out of the beginning
 ; - [ ] (bug) can't replicate: crashes at random during game play
 ; - [ ] (bug) can't replicate: baddies freeze
 ; - [ ] (bug) win game state - text over header
@@ -96,7 +96,7 @@ DEBUG=0
 SPRITEON=1
 BOOT=0
 
-IF BOOT OR ( NOT DEBUG) THEN ON ERROR PROC exit()
+IF NOT DEBUG THEN ON ERROR PROC exit()
 
 PROC initOnce()
 PROC initNewGame()
@@ -128,7 +128,7 @@ DEFPROC updateLoop()
     LET %b=%b+1
   REPEAT UNTIL %b=(c+1)
   IF INKEY$ ="h" THEN PROC pauseGame()
-  SPRITE MOVE : ; INT ;: without INT it seems to run a tiny bit smoother on tomb intersections
+  SPRITE MOVE INT  : ;without INT itseems TO RUN atinybitsmoother ON tombintersections
   IF %m <> -1 THEN DRIVER 49,2,%m:%m=%-1: ; play the activated sound effect
   ;PROC dT() TO %f: PRINT AT 0,0;%c;"@";%f;" ": ; f big = bad, small = good
 ENDPROC
@@ -215,7 +215,7 @@ ENDPROC =%i-5,%i
 ;
 ; getYTombs: get tombs on the left and right of player
 DEFPROC getYTombs()
-  ;%g from checkTomb
+  ;%g is from checkTomb
 
   ; this uses special logic for the left and right edge of the grid,
   ; otherwise when you complete tomb 4 (x:4, y:0) then it wrongly
@@ -336,7 +336,7 @@ ENDPROC
 ;
 DEFPROC up(%z): ; move up
   %q=8
-  %P=2
+  %P=2: ; I'm fairly certain that q and P do pretty much the same thing
   %y=%y-z
   %d=%d^@1000
   %s=50
@@ -376,7 +376,6 @@ DEFPROC printScore()
   w$=""
   IF %w < 1001 THEN PROC pad(%w) TO w$
   PRINT AT 0,6;w$;%w
-  ;PRINT AT 1,0;"12345678"
 ENDPROC
 ;
 ; init functions
@@ -424,7 +423,7 @@ DEFPROC pauseGame()
   TILE 1,1 AT 15,0 TO %i+5,10: ; D
 
   REPEAT : REPEAT UNTIL INKEY$ =""
-  REPEAT : REPEAT UNTIL INKEY$ ="h"
+  REPEAT : REPEAT UNTIL INKEY$ <> "": ; any key to continue
   REPEAT : REPEAT UNTIL INKEY$ =""
 
   ; resume music if it wass on
@@ -432,6 +431,9 @@ DEFPROC pauseGame()
 
   ; restore the screen
   BANK 29 COPY TO 10
+
+  ; put original tiles back
+  TILE DIM 27,0,4,8
 ENDPROC
 ;
 DEFPROC gameOver()
@@ -599,8 +601,11 @@ DEFPROC initOnce()
 ENDPROC
 ;
 DEFPROC initGameVars()
-  LET %x=96: LET %y=-16: LET %s=51: ; s=sprite
-  LET %d=1: ; direction & speed
+  LET %x=%96
+  LET %y=%-16
+  LET %s=%51: ; s=sprite
+  LET %q=%0: ; last direct
+  LET %d=%1: ; direction & speed
   LET %P=%0: ; %P = last player position
   LET %a=%$ffff
   LET %r=%0: ; can player kill a mummy?
@@ -662,7 +667,7 @@ DEFPROC nextLevel(l)
 
   ; 0x150, 0x1f8, 0x1e8, 0x168
   ; offset values:
-  ; yellow (0), orange (16), purple (236), ice blue (50), green (128)
+  ; yellow (0), orange (16), purple (236), party pink (82), green (128)
   LAYER 2,1
   %i=%C(j): ;%i=%82 : ; used to test colours
   LAYER PALETTE 0,33,%$150-i
@@ -938,7 +943,6 @@ ENDPROC
 ;
 DEFPROC exit()
   ; use break to exit mid-game
-  IF err > 9 THEN e$= CHR$ (err+55)
   IF PLAYING THEN PROC initNewGame(): PROC mainLoop(): ENDPROC
 
   GO TO 9999
