@@ -43,14 +43,13 @@ RUN AT 3: REM @ 28Mhz
 ;
 ; ******** VARIABLE INDEX *********
 ;
-; %a = player last corner, used for tomb calc - initilised to $FF
 ; %A[] = baddie array (allows for > 64 elements)
 ; %b = baddie index
 ; %c = baddie count
 ; %C[] = palette colours for tombs
 ; %d = player sprite flags (mirror, etc)
 ; %n = delta time counter (only used during dev, but needs to be reserved)
-; %l = player lives
+; %P() = 0=lives, 1=score, 2=score multiple, 3=has scroll, 4=player last corner, used for tomb calc - initilised to $FFFF
 ; %P = player last position, used for tread marks - initilised to $FFFF
 ; %q = player last direction (whilst movement is engaged) - used for movement hacks
 ; %r = (flag) player has scroll and can kill a mummy
@@ -59,10 +58,9 @@ RUN AT 3: REM @ 28Mhz
 ; %S(...) = speed option array
 ; %T(21) = tomb array 0-19 with index 20 used for temp rendering, with 8bit flags (14 items contain data in the low bit)
 ; %t = items to find - defaults to 2
-; %w = score
 ; %x = player x
 ; %y = player y
-; %z = speed (for both baddie and player) - calculated based on DIFFICULTY
+; %z = speed (for both baddie and player)
 ; --- non int vars ---
 ; DIFFICULTY(3) = how many lives you start with
 ; LEVEL(1) = current level
@@ -70,7 +68,7 @@ RUN AT 3: REM @ 28Mhz
 ; PLAYING = bool like - whether we're in game or not (in menus)
 ;
 ; TMP VARIABLES
-; i, j, k (but often shared) - then - e, f, g, h, o, u, v (unless documented, are disposable between DEFPROCS)
+; i, j, k (but often shared) - then - a, e, f, g, h, l, o, u, v, w (used for score math) (unless documented, are disposable between DEFPROCS)
 ;
 ; BANK INDEX
 ;
@@ -88,12 +86,29 @@ RUN AT 3: REM @ 28Mhz
 ; 30: temp holding space for 1/3rd of layer 2 screen (used for pause)
 ; 31-33: screen cover image
 ;
+; SCORING
+;
+; A number of actions have base score values and depending on the speed and
+; difficulty the player has selected, a multiple is applied.
+;
+; The multiple logic is: x => ((4-s)*(4-d)/(4-s))+(3-s)
+; This works out so that (s)peed = 1 and (d)iffulty = 1 has a multiple of 5,
+; and speed = 3 and diffulty = 3 has a multiple of 1.
+;
+; Action values:
+; - level up: 50
+; - reveal empty tomb: 1
+; - reveal archaeologist: 25
+; - reveal key: 25
+; - reveal gold: 5
+; - kill nasty: 10
+;
 ; **********************************
 ;
 ;PROC dT()
 ;PROC splash()
 
-DEBUG=1
+DEBUG=0
 SPRITEON=1
 BOOT=0
 
@@ -110,13 +125,12 @@ DEFPROC mainLoop()
       ;IF DEBUG THEN IF INKEY$ ="s" THEN SPRITEON= NOT SPRITEON: SPRITE PRINT SPRITEON
       ;IF DEBUG THEN PRINT AT %1,%0;"mem=";%65536- USR 7962;" ": ; memory available....
       IF DEBUG THEN IF INKEY$ ="t" THEN %t=0: ; FIXME remove TESTING ONLY
-
-      IF DEBUG THEN IF INKEY$ ="d" THEN %l=0: ; FIXME remove TESTING ONLY
+      IF DEBUG THEN IF INKEY$ ="d" THEN %P(0)=0: ; FIXME remove TESTING ONLY
       IF DEBUG THEN IF INKEY$ ="w" THEN LEVEL=5:%t=0: ; FIXME remove TESTING ONLY
       IF DEBUG THEN BORDER 0
       PROC updateLoop(): ; update logic and render
       IF DEBUG THEN BORDER 2
-    REPEAT UNTIL %l=0 OR (t=0): ; until zero lives
+    REPEAT UNTIL %P(0)=0 OR (t=0): ; until zero lives
     IF %t=0 THEN PROC nextLevel(LEVEL+1): ELSE PROC gameOver(): PROC initNewGame()
   REPEAT UNTIL 0: ; repeat forever
 ENDPROC
@@ -184,21 +198,25 @@ DEFPROC updatePlayer(%z)
   IF %A[i+4]=0 THEN ENDPROC : ; ignore hidden zombies/inactive baddies
   %A[i+4]=0
   %A[i+5]=0
-  IF %r=0 THEN :%m=5: PROC takeLife(): ELSE %r=0
+  IF %P(3)=0 THEN %P(1)=%P(1)+(10*P(2)):%m=5: PROC takeLife(): ELSE %P(3)=0
 ENDPROC
 ;
 DEFPROC checkTomb()
   ; IIRC the PAUSE 1 is to attempt to match the timing if the player _had_ openned a tomb
   IF %(x MOD 48) OR (y MOD 40) THEN PAUSE 1: ENDPROC : ; only run on corners
   LET %i=%(6*(y/40))+(x/48): ; x/y as aisle index (6 aisles for 5 rows of tombs)
-  IF %i=a THEN PAUSE 1: ENDPROC : ; we were just there (%a is last position)
-  IF %a=$ffff THEN %a=%i: PAUSE 1: ENDPROC
 
-  %f=%i-a: ; f is forward +1 or backward -1
+  %e=%P(4): ; shorthand help - saves looking up all the time
+
+
+  IF %i=e THEN PAUSE 1: ENDPROC : ; we were just there (%a is last position)
+  IF %e=$ffff THEN %P(4)=%i: PAUSE 1: ENDPROC
+
+  %f=%i-e: ; f is forward +1 or backward -1
   %k=% ABS SGN {f}=1: ; k tracks the axis, +1 for X, 0 for Y
 
   ; important: %g is assigned here and used within getXTombs and getYTombs
-  IF % SGN {f < 0} THEN %g=%a: ELSE %g=%i
+  IF % SGN {f < 0} THEN %g=%e: ELSE %g=%i
 
   IF %k THEN PROC getXTombs() TO %g,%h: ELSE PROC getYTombs() TO %g,%h
 
@@ -206,7 +224,7 @@ DEFPROC checkTomb()
   IF %g < 20 THEN PROC crackEdge(%k,%g,%T(g),1,%@11011111,%@10111111)
   IF %h < 20 THEN PROC crackEdge(%k,%h,%T(h),0,%@01111111,%@11101111)
 
-  %a=%f+a: ; save the last position (reverting from %f we lost %i)
+  %P(4)=%f+e: ; save the last position (reverting from %f we lost %i)
 ENDPROC
 ;
 ; getXTombs: get tombs above and below of player
@@ -257,7 +275,10 @@ DEFPROC crackEdge(%k,%i,%j,%o,%a,%b)
   TILE 4,3 AT 0,%(3*j)+3 TO %u,%v
 
   ; archaeologist(1), key(2), amulet(3), baddie(4) or treasure(5)
-  IF %j=1 THEN %t=%t-1:%w=%w+50: ELSE IF %j=2 THEN %t=%t-1: ELSE IF %j=3 THEN %r=%1: ELSE IF %j=5 THEN %w=%w+5
+  %w=1: ; 1 point for unlocking a tomb either way
+  IF %j=1 THEN %t=%t-1:%w=25: ELSE IF %j=2 THEN %w=25:%t=%t-1: ELSE IF %j=3 THEN %P(3)=%1: ELSE IF %j=5 THEN %w=5
+
+  %P(1)=%P(1)+(w*P(2))
 
   ; if we revealed a baddie, bring them to life, and kick them off
   IF %j=4 THEN %A[6+4]=%$ff:%A[6+3]=3: SPRITE 1,,,%A[6+5]-4,1: SPRITE CONTINUE 1, STOP ,%A[7] TO %A[7]+16 STEP 1 RUN ,%A[6+5]-4 TO %A[6+5]-1, BIN 10,1,20
@@ -328,11 +349,13 @@ DEFPROC updateBaddie()
 ENDPROC
 ;
 DEFPROC takeLife()
-  %l=%l-1
-  FOR %i=1 TO %l
+  %j=%P(0)-1
+  %P(0)=%j
+  FOR %i=1 TO %j
     SPRITE %50+i,%16,%32+(i*14),54,1
   NEXT %i
-  FOR %i=%l+1 TO % INT {DIFFICULTY}
+  %k=%7-( INT {DIFFICULTY}*2)
+  FOR %i=%j+1 TO %k
     SPRITE %50+i,%16,%32+(i*14),55,1
   NEXT %i
 ENDPROC
@@ -377,6 +400,7 @@ ENDPROC =""
 ;
 DEFPROC printScore()
   w$=""
+  %w=%P(1)
   IF %w < 1001 THEN PROC pad(%w) TO w$
   PRINT AT 0,6;w$;%w
 ENDPROC
@@ -560,14 +584,12 @@ DEFPROC initOnce()
 
   %m=%-1
   PLAYING=0
-  DIFFICULTY=3
-  SPEED=3
+  DIFFICULTY=2
+  SPEED=2
 
-  %S(1)=%12
-  %S(2)=%10
-  %S(3)=%8
-  %S(4)=%6
-  %S(5)=%4
+  %S(1)=%4
+  %S(2)=%8
+  %S(3)=%12
 
   %C(1)=%0
   %C(2)=%16
@@ -609,14 +631,13 @@ DEFPROC initGameVars()
   LET %d=%1: ; direction & speed
   LET %P=%0: ; %P = last player position
   LET %a=%$ffff
-  LET %r=%0: ; can player kill a mummy?
   LET %t=%3
 ENDPROC
 ;
 DEFPROC youWin()
   LEVEL=1
   PROC setBorder(%0)
-  SPEED=1
+  SPEED=3: ; GO FAST!
 
   SPRITE PRINT 0
   PAPER 252: INK 0: BORDER 0
@@ -646,14 +667,27 @@ ENDPROC
 ;
 DEFPROC initNewGame()
   PROC welcome()
-  %w=0: ; score
+  PROC initPlayerState()
   ; define player and game state
   %z=%S( INT {SPEED}): ; baddie speed
-  %l=% INT {DIFFICULTY}: ; lives
+
   PLAYING=1
   PROC resetFont()
 
   PROC nextLevel(1)
+ENDPROC
+;
+DEFPROC initPlayerState()
+  %P(0)=%7-( INT {DIFFICULTY}*2): ; lives
+  %P(1)=%0: ; score
+  %i=% INT {SPEED}
+  %j=% INT {DIFFICULTY}
+  %P(2)=%(j-1)+i: ;%((4-i)*(4-j)/(4-i))+(3-i): ; score multiple
+ENDPROC
+;
+DEFPROC resetPlayerState()
+  %P(3)=%0: ; has scroll / can kill baddie
+  %P(4)=%$ffff: ; player last corner
 ENDPROC
 ;
 DEFPROC nextLevel(l)
@@ -675,16 +709,18 @@ DEFPROC nextLevel(l)
   LAYER PALETTE 0,35,%$1e8-i
   LAYER PALETTE 0,36,%$168-i
 
+  PROC resetPlayerState()
   PROC initSprites()
   PROC setBorder(%$168-i)
   PROC initBaddies()
   PROC initTombs()
   PROC initGameVars()
   PROC treadMark(): ; depends on player position
-  %l=%l+1: ; stupid, but can't be bothered to add more code
+  %P(0)=%P(0)+1: ; stupid, but can't be bothered to add more code
   PROC takeLife(): ; renders the lives
 
-  %w=%w+ INT {(LEVEL-1)*50}
+  %w=% INT {(LEVEL-1)*50}
+  %P(1)=%P(1)+(w*P(2))
 
   PROC printScore()
 
@@ -732,29 +768,37 @@ DEFPROC optionsScreen()
     LET %j=% INT { CODE INKEY$ }-$30
     IF %j < 4 THEN %z=%j
   REPEAT UNTIL %z <> 0
-  ;PRINT AT %y+1,30;%z
-  SPEED=%7-(z*2): ; maps 1 to 5, 2 to 3, 3 to 1
-  %z=%S( INT {SPEED})
+  PRINT AT %y+(z*2+1),5; INVERSE 1;" ";%z;" "
+  IF %z=1 THEN PRINT AT %y+10,5;"Gentle it shall be"
+  IF %z=2 THEN PRINT AT %y+10,5;"Not feeling brave, eh?"
+  IF %z=3 THEN PRINT AT %y+10,5;"Nutter. You're on."
+  SPEED=%z: ; maps 1 to 5, 2 to 3, 3 to 1
+  %z=%S(z)
 
   REPEAT : REPEAT UNTIL INKEY$ ="": ; wait until the key is up again
+  FOR %i=%0 TO %100: SPRITE MOVE INT : NEXT %i
 
   PROC header()
 
   PRINT AT %y+1,5;"Difficulty level ?"
 
-  PRINT AT %y+3,5;"[1] I need all the help I"
-  PRINT AT %y+4,5;"    can get"
-  PRINT AT %y+6,5;"[2] I can manage"
-  PRINT AT %y+8,5;"[3] DEATHWISH"
+  PRINT AT %y+3,5;"[1] I need ALL the help"
+  PRINT AT %y+5,5;"[2] I'll manage fine"
+  PRINT AT %y+7,5;"[3] DEATHWISH"
 
   REPEAT
     SPRITE MOVE INT
     LET %j=% INT { CODE INKEY$ }-$30
-    IF %j < 4 THEN DIFFICULTY=%7-(j*2): ; maps 1 to 5, 2 to 3, 3 to 1
+    IF %j < 4 THEN DIFFICULTY=%j: ; maps 1 to 3, 2 to 2, 3 to 1
   REPEAT UNTIL DIFFICULTY <> 0
   ;PRINT AT %y+1,30;DIFFICULTY
+  PRINT AT %y+(j*2+1),5; INVERSE 1;" ";%j;" "
+  IF %j=1 THEN PRINT AT %y+10,5;"You got it!"
+  IF %j=2 THEN PRINT AT %y+10,5;"The nasties beg to differ"
+  IF %j=3 THEN PRINT AT %y+10,5;"RAAAAAAAAA!!!"
 
   REPEAT : REPEAT UNTIL INKEY$ ="": ; wait until the key is up again
+  FOR %i=%0 TO %100: SPRITE MOVE INT : NEXT %i
 
   PROC header()
 
@@ -766,13 +810,14 @@ DEFPROC optionsScreen()
   REPEAT
     SPRITE MOVE INT
     c$= INKEY$
-    IF c$="n" THEN MUSIC=0: PRINT AT %y+1,30;"No"
-    IF c$="y" THEN MUSIC=1: PRINT AT %y+1,30;"Yes"
+    IF c$="y" THEN MUSIC=1: PRINT AT %y+3,5; INVERSE 1;" y ": PRINT AT %y+10,3;"It's pretty banging isn't it?"
+    IF c$="n" THEN MUSIC=0: PRINT AT %y+5,5; INVERSE 1;" n ": PRINT AT %y+10,5;"Okay, susshing now"
   REPEAT UNTIL MUSIC < 2
 
   IF MUSIC=0 THEN DRIVER 50,4: ELSE DRIVER 50,2: DRIVER 50,3
 
   REPEAT : REPEAT UNTIL INKEY$ ="": ; wait until the key is up again
+  FOR %i=%0 TO %100: SPRITE MOVE INT : NEXT %i
 
 ENDPROC
 ;
