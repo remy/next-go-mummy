@@ -97,7 +97,7 @@ DEBUG=0
 SPRITEON=1
 BOOT=0
 
-IF NOT DEBUG THEN ON ERROR PROC exit()
+;IF NOT DEBUG THEN ON ERROR PROC exit()
 
 PROC initOnce()
 PROC initNewGame()
@@ -113,7 +113,9 @@ DEFPROC mainLoop()
 
       IF DEBUG THEN IF INKEY$ ="d" THEN %l=0: ; FIXME remove TESTING ONLY
       IF DEBUG THEN IF INKEY$ ="w" THEN LEVEL=5:%t=0: ; FIXME remove TESTING ONLY
+      IF DEBUG THEN BORDER 0
       PROC updateLoop(): ; update logic and render
+      IF DEBUG THEN BORDER 2
     REPEAT UNTIL %l=0 OR (t=0): ; until zero lives
     IF %t=0 THEN PROC nextLevel(LEVEL+1): ELSE PROC gameOver(): PROC initNewGame()
   REPEAT UNTIL 0: ; repeat forever
@@ -834,12 +836,12 @@ DEFPROC helpScreen()
 
   LET %y=6
 
-  PRINT AT %y+3,2;"CONTROLS"
-  PRINT AT %y+5,2;"Kempton joystick and keyboard";
-  PRINT AT %y+7,2;"Q= up"
-  PRINT AT %y+8,18;"A= down"
-  PRINT AT %y+7,18;"O= left"
-  PRINT AT %y+8,2;"P= right"
+  PRINT AT %y+2,2;"CONTROLS"
+  PRINT AT %y+4,2;"Kempton joystick and keyboard";
+  PRINT AT %y+6,2;"Q= up"
+  PRINT AT %y+7,18;"A= down"
+  PRINT AT %y+6,18;"O= left"
+  PRINT AT %y+7,2;"P= right"
   PRINT AT %y+9,2;"H= halt / pause"
 
   PRINT AT %y+11,2;"Surround a tomb to reveal the"
