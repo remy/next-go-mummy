@@ -1,6 +1,6 @@
 #program mummy
 #autostart 10
-#autoline 10
+#autoline 10,1
 ; Oh Mummy (clone), Remy Sharp 2020 / @rem
 ;
 RUN AT 3: REM @ 28Mhz
@@ -8,13 +8,13 @@ RUN AT 3: REM @ 28Mhz
 ; ************ TODO ***************
 ; - [ ] (bug) can't replicate: crashes at random during game play
 ; - [ ] (bug) can't replicate: baddies freeze
-; - [ ] (bug) win game state - text over header
 ; - [ ] (req) Hi-score(?)
 ; - [ ] (feat) "Get outta there" / "now find the archaeologist" / "find that key!" marquee
 ; - [ ] (feat) AI for baddie & dumb baddies
 ; - [ ] (feat) Improve background tile/walkway image
 ; - [~] Welcome screen / start game
 ; - [?] (bug) on start of next level you're thrown out of the beginning
+; - [x] (bug) win game state - text over header
 ; - [x] (bug) without music, pause and unpause, sound effects break
 ; - [x] (bug) level 4 has corrupted image on tile 7 + 8 - can't replicate in cspect (I was poking a transparent colour in)
 ; - [x] (bug) score misaligned after I win
@@ -93,7 +93,7 @@ RUN AT 3: REM @ 28Mhz
 ;PROC dT()
 ;PROC splash()
 
-DEBUG=0
+DEBUG=1
 SPRITEON=1
 BOOT=0
 
@@ -616,16 +616,16 @@ ENDPROC
 DEFPROC youWin()
   LEVEL=1
   PROC setBorder(%0)
-  SPEED=SPEED+1
+  SPEED=1
 
   SPRITE PRINT 0
-  PROC header()
+  PAPER 252: INK 0: BORDER 0
+  LOAD "assets/youdidit.sl2" LAYER
 
-  LET %y=6
+  LET %y=7
 
   PROC narrowFont()
 
-  PRINT AT %y-1,12; CHR$ 29; CHR$ 1;"YOU DID IT!!!"; CHR$ 29; CHR$ 0
   PRINT AT %y+2,1;"You saved all five of the "
   PRINT AT %y+3,1;"archaeologists. They're safe back"
   PRINT AT %y+4,1;"home drinking tea and dunking"
@@ -722,38 +722,52 @@ DEFPROC optionsScreen()
   DIFFICULTY=0
   %z=0
 
-  PRINT AT %y+1,5;"Speed of baddies [1-5] ? █"
-  PRINT AT %y+2,5;"    (1 is fastest)"
+  PRINT AT %y+1,5;"Speed of nasties ?"
+  PRINT AT %y+3,5;"[1] I'm a kid, be gentle"
+  PRINT AT %y+5,5;"[2] regular speed"
+  PRINT AT %y+7,5;"[3] BRING IT ON!!!"
   PAUSE 100
   REPEAT
     SPRITE MOVE INT
     LET %j=% INT { CODE INKEY$ }-$30
-    IF %j < 6 THEN %z=%j
+    IF %j < 4 THEN %z=%j
   REPEAT UNTIL %z <> 0
-  PRINT AT %y+1,30;%z
-  SPEED=%z
+  ;PRINT AT %y+1,30;%z
+  SPEED=%7-(z*2): ; maps 1 to 5, 2 to 3, 3 to 1
   %z=%S( INT {SPEED})
 
   REPEAT : REPEAT UNTIL INKEY$ ="": ; wait until the key is up again
 
-  PRINT AT %y+4,5;"Difficulty level [1-5] ? █"
-  PRINT AT %y+5,5;"    (1 is hardest)"
+  PROC header()
+
+  PRINT AT %y+1,5;"Difficulty level ?"
+
+  PRINT AT %y+3,5;"[1] I need all the help I"
+  PRINT AT %y+4,5;"    can get"
+  PRINT AT %y+6,5;"[2] I can manage"
+  PRINT AT %y+8,5;"[3] DEATHWISH"
+
   REPEAT
     SPRITE MOVE INT
     LET %j=% INT { CODE INKEY$ }-$30
-    IF %j < 6 THEN DIFFICULTY=%j
+    IF %j < 4 THEN DIFFICULTY=%7-(j*2): ; maps 1 to 5, 2 to 3, 3 to 1
   REPEAT UNTIL DIFFICULTY <> 0
-  PRINT AT %y+4,30;DIFFICULTY
+  ;PRINT AT %y+1,30;DIFFICULTY
 
   REPEAT : REPEAT UNTIL INKEY$ ="": ; wait until the key is up again
 
+  PROC header()
+
   MUSIC=2
-  PRINT AT %y+7,5;"Background music [Y-N] ? █"
+  PRINT AT %y+1,5;"Background music ?"
+  PRINT AT %y+3,5;"[y] IT ROCKS \m/"
+  PRINT AT %y+5,5;"[n] I prefer to work"
+  PRINT AT %y+6,5;"    in silence"
   REPEAT
     SPRITE MOVE INT
     c$= INKEY$
-    IF c$="n" THEN MUSIC=0: PRINT AT %y+7,30;"No"
-    IF c$="y" THEN MUSIC=1: PRINT AT %y+7,30;"Yes"
+    IF c$="n" THEN MUSIC=0: PRINT AT %y+1,30;"No"
+    IF c$="y" THEN MUSIC=1: PRINT AT %y+1,30;"Yes"
   REPEAT UNTIL MUSIC < 2
 
   IF MUSIC=0 THEN DRIVER 50,4: ELSE DRIVER 50,2: DRIVER 50,3
@@ -829,7 +843,6 @@ DEFPROC helpScreen()
   PRINT AT %y+12,24;"Continue..."
   PAPER 252: INK 0
 
-  ;PAUSE 50: REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
   PROC pressAnyKey()
 
   PROC header()
@@ -860,8 +873,7 @@ ENDPROC
 ;
 DEFPROC header()
   PAPER 252: INK 0: BORDER 0
-  ; important: I'm not using CLS as this method is faster
-  ; otherwise there's a visible screen clear and reset
+  ; basically loading an SL2 file without the layer bit (and thus file i/o)
   BANK 31 COPY TO 9: ; Oh Mummy header 1/3 (banner1.bin)
   BANK 32 COPY TO 10: ; Oh Mummy header 2/3
   BANK 33 COPY TO 11: ; Oh Mummy header 3/3
@@ -946,10 +958,9 @@ ENDPROC
 DEFPROC exit()
   ; use break to exit mid-game
   IF PLAYING THEN PROC initNewGame(): PROC mainLoop(): ENDPROC
-
   GO TO 9999
 ENDPROC
 ;
 #autoline
-9900 CLEAR : PALETTE CLEAR : LAYER CLEAR : SPRITE PRINT 0: SAVE "mummy.bas" LINE 0: STOP
+9990 CLEAR : PALETTE CLEAR : LAYER CLEAR : SPRITE PRINT 0: SAVE "mummy.bas" LINE 0: STOP
 9999 REG 2,1: ; soft reset
