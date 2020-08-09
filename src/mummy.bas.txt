@@ -1,18 +1,21 @@
-#program mummy
+#program gomummy
 #autostart 10
 #autoline 10,1
-; Oh Mummy (clone), Remy Sharp 2020 / @rem
+; Oh Mummy (clone) and to avoid any problem with the name, called Oh Remmmy!
+; By Remy Sharp 2020 / @rem / https://remysharp.com
 ;
 RUN AT 3: REM @ 28Mhz
 ;
 ; ************ TODO ***************
 ; - [ ] (bug) can't replicate: crashes at random during game play
 ; - [ ] (bug) can't replicate: baddies freeze
-; - [ ] (req) Hi-score(?)
 ; - [ ] (feat) "Get outta there" / "now find the archaeologist" / "find that key!" marquee
 ; - [ ] (feat) AI for baddie & dumb baddies
 ; - [ ] (feat) Improve background tile/walkway image
 ; - [~] Welcome screen / start game
+; - [x] (req) Hi-score(?)
+; - [x] (feat) sound when killing baddie
+; - [x] (bug) no score if you kill baddie
 ; - [?] (bug) on start of next level you're thrown out of the beginning
 ; - [x] (bug) win game state - text over header
 ; - [x] (bug) without music, pause and unpause, sound effects break
@@ -48,6 +51,7 @@ RUN AT 3: REM @ 28Mhz
 ; %c = baddie count
 ; %C[] = palette colours for tombs
 ; %d = player sprite flags (mirror, etc)
+; H() = high scores (actually just one)
 ; %n = delta time counter (only used during dev, but needs to be reserved)
 ; %P() = 0=lives, 1=score, 2=score multiple, 3=has scroll, 4=player last corner, used for tomb calc - initilised to $FFFF
 ; %P = player last position, used for tread marks - initilised to $FFFF
@@ -73,12 +77,12 @@ RUN AT 3: REM @ 28Mhz
 ; BANK INDEX
 ;
 ; 19: tiles (copied from BANK 23)
-; 20: music (mummy.ndr)
-; 21: music player (nextdaw.drv)
+; 20: music (music.ndr)
+; 21: game over (music) (gameover.ndr)
 ; 22: main player and NPC sprites (m-sprites.spr)
 ; 23: tile map (used with BANK 19) (mummy.map)
 ; 24: tile data (sprites) (m-tiles.spr)
-; 25: "oh mummy" layer 2 header (1/3 of layer 2) (banner.bin)
+; 25: hi score (music) (hiscore.ndr)
 ; 26: game over/pause tiles
 ; 27: tomb tiles - extra graphics arranged in a useful layout
 ; 28: palette - let's me change level colours without additional graphics
@@ -91,9 +95,9 @@ RUN AT 3: REM @ 28Mhz
 ; A number of actions have base score values and depending on the speed and
 ; difficulty the player has selected, a multiple is applied.
 ;
-; The multiple logic is: x => ((4-s)*(4-d)/(4-s))+(3-s)
-; This works out so that (s)peed = 1 and (d)iffulty = 1 has a multiple of 5,
-; and speed = 3 and diffulty = 3 has a multiple of 1.
+; The multiple logic is: x => (d-1)+s:
+; This works out so that (s)peed = 1 and (d)iffulty = 1 has a multiple of 1,
+; and speed = 3 and diffulty = 3 has a multiple of 5.
 ;
 ; Action values:
 ; - level up: 50
@@ -112,7 +116,7 @@ DEBUG=0
 SPRITEON=1
 BOOT=0
 
-;IF NOT DEBUG THEN ON ERROR PROC exit()
+IF NOT DEBUG THEN ON ERROR PROC exit()
 
 PROC initOnce()
 PROC initNewGame()
@@ -124,12 +128,12 @@ DEFPROC mainLoop()
     REPEAT
       ;IF DEBUG THEN IF INKEY$ ="s" THEN SPRITEON= NOT SPRITEON: SPRITE PRINT SPRITEON
       ;IF DEBUG THEN PRINT AT %1,%0;"mem=";%65536- USR 7962;" ": ; memory available....
-      IF DEBUG THEN IF INKEY$ ="t" THEN %t=0: ; FIXME remove TESTING ONLY
-      IF DEBUG THEN IF INKEY$ ="d" THEN %P(0)=0: ; FIXME remove TESTING ONLY
-      IF DEBUG THEN IF INKEY$ ="w" THEN LEVEL=5:%t=0: ; FIXME remove TESTING ONLY
-      IF DEBUG THEN BORDER 0
+      ;IF DEBUG THEN IF INKEY$ ="t" THEN %t=0: ; FIXME remove TESTING ONLY
+      ;IF DEBUG THEN IF INKEY$ ="d" THEN %P(0)=0: ; FIXME remove TESTING ONLY
+      ;IF DEBUG THEN IF INKEY$ ="w" THEN LEVEL=5:%t=0: ; FIXME remove TESTING ONLY
+      ;IF DEBUG THEN BORDER 0
       PROC updateLoop(): ; update logic and render
-      IF DEBUG THEN BORDER 2
+      ;IF DEBUG THEN BORDER 2
     REPEAT UNTIL %P(0)=0 OR (t=0): ; until zero lives
     IF %t=0 THEN PROC nextLevel(LEVEL+1): ELSE PROC gameOver(): PROC initNewGame()
   REPEAT UNTIL 0: ; repeat forever
@@ -198,12 +202,12 @@ DEFPROC updatePlayer(%z)
   IF %A[i+4]=0 THEN ENDPROC : ; ignore hidden zombies/inactive baddies
   %A[i+4]=0
   %A[i+5]=0
-  IF %P(3)=0 THEN %P(1)=%P(1)+(10*P(2)):%m=5: PROC takeLife(): ELSE %P(3)=0
+  IF %P(3)=0 THEN %m=5: PROC takeLife(): ELSE %P(3)=0: PROC printScore(10):%m=6
 ENDPROC
 ;
 DEFPROC checkTomb()
   ; IIRC the PAUSE 1 is to attempt to match the timing if the player _had_ openned a tomb
-  IF %(x MOD 48) OR (y MOD 40) THEN PAUSE 1: ENDPROC : ; only run on corners
+  IF %(x MOD 48) OR (y MOD 40) THEN ENDPROC : ; only run on corners
   LET %i=%(6*(y/40))+(x/48): ; x/y as aisle index (6 aisles for 5 rows of tombs)
 
   %e=%P(4): ; shorthand help - saves looking up all the time
@@ -278,14 +282,12 @@ DEFPROC crackEdge(%k,%i,%j,%o,%a,%b)
   %w=1: ; 1 point for unlocking a tomb either way
   IF %j=1 THEN %t=%t-1:%w=25: ELSE IF %j=2 THEN %w=25:%t=%t-1: ELSE IF %j=3 THEN %P(3)=%1: ELSE IF %j=5 THEN %w=5
 
-  %P(1)=%P(1)+(w*P(2))
-
   ; if we revealed a baddie, bring them to life, and kick them off
   IF %j=4 THEN %A[6+4]=%$ff:%A[6+3]=3: SPRITE 1,,,%A[6+5]-4,1: SPRITE CONTINUE 1, STOP ,%A[7] TO %A[7]+16 STEP 1 RUN ,%A[6+5]-4 TO %A[6+5]-1, BIN 10,1,20
 
   %T(i)=%j+8: ; prevent the tomb from being reopened
 
-  PROC printScore()
+  PROC printScore(%w)
 ENDPROC
 ;
 ; leave tread marks
@@ -350,6 +352,7 @@ ENDPROC
 ;
 DEFPROC takeLife()
   %j=%P(0)-1
+  IF %j=0 THEN %m=3: ; REALLY dead sound
   %P(0)=%j
   FOR %i=1 TO %j
     SPRITE %50+i,%16,%32+(i*14),54,1
@@ -398,11 +401,18 @@ DEFPROC pad(%w)
   IF %w < 1000 THEN ENDPROC ="0"
 ENDPROC =""
 ;
-DEFPROC printScore()
-  w$=""
+DEFPROC printScore(%i)
+
+  %P(1)=%P(1)+(i*P(2))
   %w=%P(1)
+
+  IF %w > INT {H(1)} THEN H(1)=%w: LAYER PALETTE 0,2,%$1c5:
+
+  w$=""
   IF %w < 1001 THEN PROC pad(%w) TO w$
   PRINT AT 0,6;w$;%w
+
+  PRINT AT 0,27;H(1)
 ENDPROC
 ;
 ; init functions
@@ -423,7 +433,7 @@ DEFPROC setBorder(%n)
   BORDER 0
   LAYER PALETTE 0 BANK 28,512
   LAYER 2,1: ; re-select our original layer
-  PAPER 0: INK 255
+  PAPER 0: INK 2: ; note that ink 2 is changed on the fly
 ENDPROC
 ;
 DEFPROC pauseGame()
@@ -471,7 +481,12 @@ DEFPROC gameOver()
   TILE 16,3 AT 0,2 TO 8,12
   TILE 16,3 AT 0,2 TO 8,15
 
-  DRIVER 49,2,3: ; play game over sound
+  ;DRIVER 49,2,3: ; play game over sound
+  LET %j=%P(1)= INT {H(1)}
+
+  IF NOT MUSIC THEN : ELSE IF %j THEN  DRIVER 50,1,0,25: ELSE DRIVER 50,1,0,21
+  IF MUSIC THEN DRIVER 50,2: DRIVER 50,3
+
   FOR %i=%0 TO %20: PAUSE 1: NEXT %i
   TILE 1,1 AT 0,0 TO 8,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ;  G
   TILE 1,1 AT 1,0 TO 10,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; A
@@ -481,10 +496,29 @@ DEFPROC gameOver()
   TILE 1,1 AT 5,0 TO 19,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; V
   TILE 1,1 AT 6,0 TO 21,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; E
   TILE 1,1 AT 7,0 TO 23,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; R
-  TILE 7,1 AT 0,1 TO 12,14: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; "you ded"
 
-  PROC pressAnyKey()
+  IF %j THEN TILE 9,1 AT 7,1 TO 11,14: ELSE TILE 7,1 AT 0,1 TO 12,14: ; "you ded" / "hi score"
+  FOR %i=%0 TO %20: PAUSE 1: NEXT %i
+
+  PROC freeze()
+  REPEAT : REPEAT UNTIL INKEY$ =""
+  REPEAT : REPEAT UNTIL INKEY$ <> "" OR ( IN 31=16)
+  PROC saveHighScore()
+  PROC resetMusic()
+  REPEAT : REPEAT UNTIL INKEY$ =""
+
   SPRITE CLEAR
+ENDPROC
+;
+DEFPROC resetMusic()
+  DRIVER 50,1,0,20: ; reset to the main music
+  DRIVER 50,2
+  IF MUSIC THEN DRIVER 50,3
+ENDPROC
+;
+DEFPROC saveHighScore()
+  %i= INT H(1)
+  IF %P(1) > i THEN H(1)=%P(1): SAVE "assets/scores.bin" DATA H()
 ENDPROC
 ;
 ; initBaddies: %A=Array[[x,y,spr,angle(0: x, 1: y),direction(0: backward, 1: forward),alive]] (allowing for more than 10 baddies)
@@ -564,7 +598,9 @@ DEFPROC loadAssets()
   ; note: I'm being a bit lavish with my banks here, but I could pretty easily
   ; upgrade the .map files to exist in a single file and single bank, just use
   ; offsets (same goes with .pal, .adb and .bin)
-  LOAD "assets/mummy.ndr" BANK 20: ; plus bank 21 for music
+  LOAD "assets/music.ndr" BANK 20
+  LOAD "assets/gameover.ndr" BANK 21
+  LOAD "assets/hiscore.ndr" BANK 25
   LOAD "assets/m-sprites.spr" BANK 22: SPRITE BANK 22
   LOAD "assets/mummy.map" BANK 23: ;load tile map created at https://zx.remysharp.com/sprites/
   LOAD "assets/m-tiles.spr" BANK 24: TILE BANK 24: ; load spritesheet for tiles
@@ -577,6 +613,9 @@ DEFPROC loadAssets()
   LOAD "assets/banner1.bin" BANK 31: ; header for non-game screens
   LOAD "assets/banner2.bin" BANK 32: ; header for non-game screens
   LOAD "assets/banner3.bin" BANK 33: ; header for non-game screens
+  LOAD "assets/scores.bin" DATA H()
+
+  ON ERROR CONTINUE :"assets/ayfx.drv": ON ERROR
 ENDPROC
 ;
 DEFPROC initOnce()
@@ -599,13 +638,7 @@ DEFPROC initOnce()
 
   MUSIC= NOT DEBUG
 
-  ; music
-  DRIVER 50,1,0,20: ; BANK20
-  DRIVER 50,1,1,21: ; BANK21
-  DRIVER 50,2: ; Init Song
-  IF MUSIC THEN DRIVER 50,3: ; Play Song
-
-  ; sound effects
+  ; init the sound effects
   DRIVER 49,1,29
 
   ; font
@@ -665,13 +698,27 @@ DEFPROC youWin()
   PROC pressAnyKey()
 ENDPROC
 ;
+DEFPROC freeze()
+  BANK 9 COPY TO 12
+  BANK 10 COPY TO 13
+  BANK 11 COPY TO 14
+  REG 18,12
+ENDPROC
+;
+DEFPROC defrost()
+  REG 18,9
+ENDPROC
+;
 DEFPROC initNewGame()
+  PROC resetMusic()
   PROC welcome()
+  PROC freeze()
   PROC initPlayerState()
   ; define player and game state
   %z=%S( INT {SPEED}): ; baddie speed
 
   PLAYING=1
+
   PROC resetFont()
 
   PROC nextLevel(1)
@@ -682,7 +729,7 @@ DEFPROC initPlayerState()
   %P(1)=%0: ; score
   %i=% INT {SPEED}
   %j=% INT {DIFFICULTY}
-  %P(2)=%(j-1)+i: ;%((4-i)*(4-j)/(4-i))+(3-i): ; score multiple
+  %P(2)=%(j-1)+i: ; score multiple
 ENDPROC
 ;
 DEFPROC resetPlayerState()
@@ -709,9 +756,10 @@ DEFPROC nextLevel(l)
   LAYER PALETTE 0,35,%$1e8-i
   LAYER PALETTE 0,36,%$168-i
 
+  PAPER 0: INK 2: ; note that ink 2 is changed on the fly
   PROC resetPlayerState()
   PROC initSprites()
-  PROC setBorder(%$168-i)
+  IF %P(1)=0 THEN LAYER PALETTE 0,2,%$1ff
   PROC initBaddies()
   PROC initTombs()
   PROC initGameVars()
@@ -719,10 +767,8 @@ DEFPROC nextLevel(l)
   %P(0)=%P(0)+1: ; stupid, but can't be bothered to add more code
   PROC takeLife(): ; renders the lives
 
-  %w=% INT {(LEVEL-1)*50}
-  %P(1)=%P(1)+(w*P(2))
+  PROC printScore(% INT {(LEVEL-1)*50})
 
-  PROC printScore()
 
   ; show how many archaeologist's are left to save
   FOR %i=2 TO LEVEL
@@ -734,7 +780,8 @@ DEFPROC nextLevel(l)
 
   ; wait for a key up
   REPEAT : REPEAT UNTIL INKEY$ =""
-
+  PROC setBorder(%$168-C( INT {LEVEL}))
+  PROC defrost()
 ENDPROC
 ;
 DEFPROC dT()
@@ -743,13 +790,6 @@ DEFPROC dT()
   IF %g < n THEN LET %f=%f+256
   LET %n=%g
 ENDPROC =%f
-;
-DEFPROC splash()
-  LAYER 2,1: CLS
-  .bmpload assets/welcome.bmp
-  PAUSE 0
-  LAYER CLEAR : PALETTE CLEAR
-ENDPROC
 ;
 DEFPROC optionsScreen()
   PROC header()
@@ -776,7 +816,7 @@ DEFPROC optionsScreen()
   %z=%S(z)
 
   REPEAT : REPEAT UNTIL INKEY$ ="": ; wait until the key is up again
-  FOR %i=%0 TO %100: SPRITE MOVE INT : NEXT %i
+  FOR %i=%0 TO %50: SPRITE MOVE INT : NEXT %i
 
   PROC header()
 
@@ -798,7 +838,7 @@ DEFPROC optionsScreen()
   IF %j=3 THEN PRINT AT %y+10,5;"RAAAAAAAAA!!!"
 
   REPEAT : REPEAT UNTIL INKEY$ ="": ; wait until the key is up again
-  FOR %i=%0 TO %100: SPRITE MOVE INT : NEXT %i
+  FOR %i=%0 TO %50: SPRITE MOVE INT : NEXT %i
 
   PROC header()
 
@@ -811,13 +851,13 @@ DEFPROC optionsScreen()
     SPRITE MOVE INT
     c$= INKEY$
     IF c$="y" THEN MUSIC=1: PRINT AT %y+3,5; INVERSE 1;" y ": PRINT AT %y+10,3;"It's pretty banging isn't it?"
-    IF c$="n" THEN MUSIC=0: PRINT AT %y+5,5; INVERSE 1;" n ": PRINT AT %y+10,5;"Okay, susshing now"
+    IF c$="n" THEN MUSIC=0: PRINT AT %y+5,5; INVERSE 1;" n ": PRINT AT %y+10,5;"Okay, shusshing now"
   REPEAT UNTIL MUSIC < 2
 
   IF MUSIC=0 THEN DRIVER 50,4: ELSE DRIVER 50,2: DRIVER 50,3
 
   REPEAT : REPEAT UNTIL INKEY$ ="": ; wait until the key is up again
-  FOR %i=%0 TO %100: SPRITE MOVE INT : NEXT %i
+  FOR %i=%0 TO %50: SPRITE MOVE INT : NEXT %i
 
 ENDPROC
 ;
@@ -919,9 +959,9 @@ ENDPROC
 DEFPROC header()
   PAPER 252: INK 0: BORDER 0
   ; basically loading an SL2 file without the layer bit (and thus file i/o)
-  BANK 31 COPY TO 9: ; Oh Mummy header 1/3 (banner1.bin)
-  BANK 32 COPY TO 10: ; Oh Mummy header 2/3
-  BANK 33 COPY TO 11: ; Oh Mummy header 3/3
+  BANK 31 COPY TO 9: ; landing screen 1/3 (banner1.bin)
+  BANK 32 COPY TO 10: ; landing screen 2/3
+  BANK 33 COPY TO 11: ; landing screen 3/3
 ENDPROC
 ;
 DEFPROC playScreen()
@@ -962,6 +1002,8 @@ DEFPROC welcome()
   CLS
   PROC narrowFont()
   PROC playScreen()
+
+  PROC defrost()
 
   REPEAT
     c$= INKEY$
