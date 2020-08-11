@@ -9,9 +9,10 @@ RUN AT 3: REM @ 28Mhz
 ;
 ; ******** TODO *********
 ;
+; - [ ] (bug) baddie can go off screen and crash the game
+; - [ ] (feat) show when you have amulet
 ; - [x] too fast until you lose a life
 ; - [x] bottom row - stuck if pointing down
-; - [ ] baddie can go off screen and crash the game
 ;
 ; ******** VARIABLE INDEX *********
 ;
@@ -85,7 +86,7 @@ DEBUG=0
 SPRITEON=1
 BOOT=0
 
-IF NOT DEBUG THEN ON ERROR PROC exit()
+;IF NOT DEBUG THEN ON ERROR PROC exit()
 
 PROC initOnce()
 PROC initNewGame()
@@ -172,7 +173,7 @@ DEFPROC updatePlayer(%z)
   IF %A[i+4]=0 THEN ENDPROC : ; ignore hidden zombies/inactive baddies
   %A[i+4]=0
   %A[i+5]=0
-  IF %P(3)=0 THEN %m=5: PROC takeLife(%1): ELSE %P(3)=0: PROC printScore(10):%m=6
+  IF %P(3)=0 THEN %m=5: PROC takeLife(%1): ELSE %P(3)=0: PROC takeLife(%0): PROC printScore(10):%m=6
 ENDPROC
 ;
 DEFPROC checkTomb()
@@ -249,7 +250,7 @@ DEFPROC crackEdge(%k,%i,%j,%o,%a,%b)
 
   ; archaeologist(1), key(2), amulet(3), baddie(4) or treasure(5)
   %w=1: ; 1 point for unlocking a tomb either way
-  IF %j=1 THEN %t=%t-1:%w=25: ELSE IF %j=2 THEN %w=25:%t=%t-1: ELSE IF %j=3 THEN %P(3)=%1: ELSE IF %j=5 THEN %w=5
+  IF %j=1 THEN %t=%t-1:%w=25: ELSE IF %j=2 THEN %w=25:%t=%t-1: ELSE IF %j=3 THEN %P(3)=%1: PROC takeLife(%0): ELSE IF %j=5 THEN %w=5
 
   ; if we revealed a baddie, bring them to life, and kick them off
   IF %j=4 THEN %A[6+4]=%$ff:%A[6+3]=3: SPRITE 1,,,%A[6+5]-4,1: SPRITE CONTINUE 1, STOP ,%A[7] TO %A[7]+16 STEP 1 RUN ,%A[6+5]-4 TO %A[6+5]-1, BIN 10,1,20
@@ -321,16 +322,23 @@ ENDPROC
 ;
 DEFPROC takeLife(%a)
   IF %a THEN BORDER 6
-  %j=%P(0)-1
-  IF %j=0 THEN %m=3: ; REALLY dead sound
+  %j=%P(0)-a
+
+  IF %j=0 THEN %m=3: ; REALLY dead sound effect
+
   %P(0)=%j
+
+  ; print hearts
   FOR %i=1 TO %j
     SPRITE %50+i,%16,%32+(i*14),54,1
   NEXT %i
+
+  ; now print empty
   %k=%7-( INT {DIFFICULTY}*2)
   FOR %i=%j+1 TO %k
     SPRITE %50+i,%16,%32+(i*14),55,1
   NEXT %i
+  SPRITE %57,%14,%36+((k+1)*14),56,%P(3)
   IF %a THEN BORDER 0
 ENDPROC
 ;
@@ -456,7 +464,6 @@ DEFPROC gameOver()
   TILE 16,3 AT 0,2 TO 8,12
   TILE 16,3 AT 0,2 TO 8,15
 
-  ;DRIVER 49,2,3: ; play game over sound
   LET %j=%P(1)= INT {H(1)}
 
   IF NOT MUSIC THEN : ELSE IF %j THEN  DRIVER 50,1,0,25: ELSE DRIVER 50,1,0,21
@@ -475,11 +482,10 @@ DEFPROC gameOver()
   IF %j THEN TILE 9,1 AT 7,1 TO 11,14: ELSE TILE 7,1 AT 0,1 TO 12,14: ; "you ded" / "hi score"
   FOR %i=%0 TO %20: PAUSE 1: NEXT %i
 
-  PROC freeze()
   REPEAT : REPEAT UNTIL INKEY$ =""
   REPEAT : REPEAT UNTIL INKEY$ <> "" OR ( IN 31=16)
+  PROC freeze(): ; not quite ideal, but it'll hopefully make the transition to main screen better
   PROC saveHighScore()
-  PROC resetMusic()
   REPEAT : REPEAT UNTIL INKEY$ =""
 
   SPRITE CLEAR
@@ -525,7 +531,7 @@ DEFPROC initTombs()
     %T(W(i))=%T(W(i))+(i+1)
   NEXT %i
 
-  ; PRINT AT 22,0;"Hidden @ ";%W(3)
+;   PRINT AT 22,0;"Hidden @ ";%W(0)
 
   ; hides the baddie in a tomb
   %A[6]=%(W(3) MOD 5)*48+32+32
@@ -561,6 +567,10 @@ ENDPROC
 DEFPROC loadAssets()
   LAYER CLEAR
   LAYER 2,1
+  LAYER BANK 9,12
+  PAPER 0
+  CLS
+  PROC freeze()
   PAPER 252: INK 0: BORDER 0:
   SPRITE CLEAR
   ; allows for stop and start when music is running still
@@ -681,21 +691,14 @@ ENDPROC
 ;
 DEFPROC freeze()
   ; point Layer 2 to the shadow layer
-  ENDPROC
-  BANK 9 COPY TO 12
-  BANK 10 COPY TO 13
-  BANK 11 COPY TO 14
-  REG 18,12
+  LAYER BANK 12,9
 ENDPROC
 ;
 DEFPROC defrost()
-  ENDPROC
-  ; point Layer 2 to back to the normal position
-  REG 18,9
+  LAYER BANK 9,9
 ENDPROC
 ;
 DEFPROC initNewGame()
-  PROC resetMusic()
   PROC welcome()
   PROC freeze()
   PROC initPlayerState()
@@ -749,8 +752,7 @@ DEFPROC nextLevel(l)
   PROC initTombs()
   PROC initGameVars()
   PROC treadMark(): ; depends on player position
-  %P(0)=%P(0)+1: ; stupid, but can't be bothered to add more code
-  PROC takeLife(0): ; renders the lives
+  PROC takeLife(%0): ; renders the lives
 
   PROC printScore(% INT {(LEVEL-1)*50})
 
@@ -1009,11 +1011,15 @@ DEFPROC welcome()
 
   PROC defrost()
 
+  ; start the music when the screen appears
+  PROC resetMusic()
+
   REPEAT
     c$= INKEY$
     IF c$="i" THEN PROC helpScreen(): PROC playScreen()
     IF c$="o" THEN PROC optionsScreen(): PROC playScreen()
     SPRITE MOVE INT
+    c$= INKEY$
   REPEAT UNTIL c$="p" OR IN 31=16
 
   LAYER CLEAR
