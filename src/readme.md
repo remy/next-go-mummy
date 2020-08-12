@@ -18,6 +18,25 @@ to escape their contents.
 
 And remember: DON'T GET CHOMPED!
 
+## Scoring
+
+You gain points for:
+
+- Revealing an empty tomb: 1
+- Reveal gold: 5
+- Kill a guardian: 10
+- Finding the archaeologist: 25
+- Finding the key: 25
+- Next level: 50
+
+The speed and difficulty selected affects the score by multiples.
+
+Easiest speed and difficultly has a base multiple of 1.
+
+Fastest speed and hardest difficult has a base multiple of 5.
+
+Want to beat the high score? Go hard and fast!
+
 ## Further reading
 
 I recorded a devlog of my trails in making this game over at:
