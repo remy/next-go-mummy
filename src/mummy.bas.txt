@@ -337,7 +337,8 @@ ENDPROC
 ; modifies: j, i, k
 DEFPROC takeLife(%a)
   LOCAL %i: LOCAL %j: LOCAL %k
-  IF %a THEN BORDER 6
+  IF %a THEN PROC setBorder(%$1c0)
+
   %j=%P(0)-a
 
   IF %j=0 THEN %m=3: ; REALLY dead sound effect
@@ -356,7 +357,9 @@ DEFPROC takeLife(%a)
   NEXT %i
   ; note that %i increments beyond the max value
   SPRITE %46,%14,%36+(i*14),56,%P(3)
-  IF %a THEN BORDER 0
+
+  PAUSE 5
+  IF %a THEN PROC setBorder(%$168-C( INT {LEVEL}))
 ENDPROC
 ;
 DEFPROC up(%z): ; move up
