@@ -1,18 +1,14 @@
 #program gomummy
-#autostart 1
+#autostart 10
 #autoline 10,1
-; Oh Mummy (clone) and to avoid any problem with the name, called Oh Remmmy! (or Go Mummy!)
+; Oh Mummy (clone) and to avoid any problem with the name, called Go Mummy!
 ; By Remy Sharp 2020 / @rem / https://remysharp.com
-; Full source code at https://github.com/remy/next-oh-mummy/
+; Full source code at https://github.com/remy/next-go-mummy/
 ;
 RUN AT 3: REM @ 28Mhz
 ;
 ; ******** TODO *********
-; - [x] (bug) at random times, you can't unlock tomb 4
-; - [x] (feat) show when you have amulet
-; - [x] (bug) baddie can go off screen and crash the game
-; - [x] too fast until you lose a life
-; - [x] bottom row - stuck if pointing down
+; - [x] finish game \o/
 ;
 ; ******** VARIABLE INDEX *********
 ;
@@ -80,7 +76,6 @@ RUN AT 3: REM @ 28Mhz
 ; **********************************
 ;
 ;PROC dT()
-;PROC splash()
 
 DEBUG=0
 SPRITEON=1
@@ -902,18 +897,40 @@ DEFPROC helpScreen()
 
   LET %y=9
   ; 123456789012345678901234567890123456 (total column count: 36)
-  PRINT AT %y,2;"Rescue the original 1984"
-  PRINT AT %y+1,2;"archaeologist party from their"
-  PRINT AT %y+2,2;"failed pyramid plundering."
-  PRINT AT %y+5,2;"Navigate five catacombs, avoiding"
-  PRINT AT %y+6,2;"the guardians, rescue those"
-  PRINT AT %y+7,2;"muppets and bring them back"
-  PRINT AT %y+8,2;"to Blighty."
+
+  PRINT AT %y,2;"In 1984 a party of archaeologists"
+  PRINT AT %y+1,2;"went in search of lost treasures,"
+  PRINT AT %y+2,2;"and yet they found themselves"
+  PRINT AT %y+3,2;"simply crying OH MUMMY!"
+
+  PRINT AT %y+5,2;"In the modern day, you're tasked"
+  PRINT AT %y+6,2;"with the job of rescuing the"
+  PRINT AT %y+7,2;"archaeologists from their failed"
+  PRINT AT %y+8,2;"pyramid plundering."
+
   PAPER 0: INK 252
   PRINT AT %y+11,24;"Continue..."
   PAPER 252: INK 0
 
-  ;PAUSE 50: REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
+  PROC pressAnyKey()
+
+  PROC header(34)
+
+  LET %y=9
+
+  PRINT AT %y,2;"You must navigate five catacombs,"
+  PRINT AT %y+1,2;"avoiding the guardians, rescue"
+  PRINT AT %y+2,2;"those muppets and bring them"
+  PRINT AT %y+3,2;"back to Blighty."
+  PRINT AT %y+5,2;"Surround the tombs to find the"
+  PRINT AT %y+6,2;"archaeologist and key to escape"
+  PRINT AT %y+7,2;"their contents. And remember:"
+  PRINT AT %y+9,2;"DON'T GET CHOMPED!"
+
+  PAPER 0: INK 252
+  PRINT AT %y+11,24;"Continue..."
+  PAPER 252: INK 0
+
   PROC pressAnyKey()
 
   LET %y=8
@@ -929,7 +946,7 @@ DEFPROC helpScreen()
 
   PRINT AT %y+1,6;"Rescue this dude"
   PRINT AT %y+4,6;"Key to escape the catacomb"
-  PRINT AT %y+7,6;"Vanquish a guardian"
+  PRINT AT %y+7,6;"Protects you from a guardian"
   PRINT AT %y+10,6;"Gems means hi-scores"
 
   PAPER 0: INK 252
@@ -968,14 +985,13 @@ DEFPROC helpScreen()
   PRINT AT %y+7,18;"P= right"
   PRINT AT %y+9,3;"H= halt / pause"
 
-  PRINT AT %y+11,3;"Surround a tomb to reveal the"
-  PRINT AT %y+12,3;"contents. Don't get chomped!"
+  PRINT AT %y+11,3;"Surround each side of the tomb"
+  PRINT AT %y+12,3;"to reveal the contents."
 
   PAPER 0: INK 252
   PRINT AT %y+15,24;"Continue..."
   PAPER 252: INK 0
 
-  ;PAUSE 50: REPEAT : SPRITE MOVE INT : REPEAT UNTIL INKEY$ <> ""
   PROC pressAnyKey()
 
   PROC creditScreen()
@@ -1081,5 +1097,4 @@ DEFPROC exit()
 ENDPROC
 ;
 #autoline
-9990 CLEAR : PALETTE CLEAR : LAYER CLEAR : SPRITE PRINT 0: SAVE "mummy.bas" LINE 0: STOP
 9999 REG 2,1: ; soft reset
