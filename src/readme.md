@@ -18,16 +18,27 @@ to escape their contents.
 
 And remember: DON'T GET CHOMPED!
 
+## Game play
+
+Surround the tombs to reveal the contents. To completely crack one edge of the
+tomb, you must run from one intersection to the next which will cause the side
+to crack.
+
+You must leave the catacomb the way that you entered, and you cannot leave until
+you have *both* the archaeologist and the key.
+
+Although it's not required to reveal every tomb, you'll earn points doing so.
+
 ## Scoring
 
 You gain points for:
 
-- Revealing an empty tomb: 1
-- Reveal gold: 5
-- Kill a guardian: 10
-- Finding the archaeologist: 25
-- Finding the key: 25
-- Next level: 50
+- Revealing an empty tomb: 1 point
+- Reveal gold: 5 points
+- Kill a guardian: 10 points
+- Finding the archaeologist: 25 points
+- Finding the key: 25 points
+- Exit a level: 50 points
 
 The speed and difficulty selected affects the score by multiples.
 
@@ -36,6 +47,13 @@ Easiest speed and difficultly has a base multiple of 1.
 Fastest speed and hardest difficult has a base multiple of 5.
 
 Want to beat the high score? Go hard and fast!
+
+## Credits
+
+- Written by Remy Sharp / https://remysharp.com / @rem
+- Sprites by Remy's kids
+- Music by Richard Faulkner
+- Font by Paul van der Laan / https://spectrumcomputing.co.uk/entry/25364/ZX-Spectrum/The_8bit_Font_Collection
 
 ## Further reading
 
@@ -46,10 +64,3 @@ https://remysharp.com/devlog/oh-mummy/
 The fully commented source code is also available at:
 
 https://github.com/remy/next-go-mummy/blob/master/src/mummy.bas.txt
-
-## Credits
-
-- Written by Remy Sharp / https://remysharp.com / @rem
-- Sprites by Remy's kids
-- Music by Richard Faulkner
-- Font by Paul van der Laan / https://spectrumcomputing.co.uk/entry/25364/ZX-Spectrum/The_8bit_Font_Collection
