@@ -97,7 +97,7 @@ DEFPROC mainLoop()
       ;IF DEBUG THEN IF INKEY$ ="d" THEN %P(0)=0: ; FIXME remove TESTING ONLY
       ;IF DEBUG THEN IF INKEY$ ="w" THEN LEVEL=5:%t=0: ; FIXME remove TESTING ONLY
       ;IF DEBUG THEN BORDER 0
-      PROC updateLoop(): ; update logic and render
+      PROC gameLoop(): ; update logic and render
       ;IF DEBUG THEN BORDER 2
     REPEAT UNTIL %P(0)=0 OR (t=0): ; until zero lives
     IF %t=0 THEN PROC nextLevel(LEVEL+1): ELSE PROC gameOver(): PROC initNewGame()
@@ -105,7 +105,7 @@ DEFPROC mainLoop()
 ENDPROC
 ;
 ; start main game loop - we do only one thing at a time in the main loop
-DEFPROC updateLoop()
+DEFPROC gameLoop()
   PROC updatePlayer(%8)
   LET %b=1: ; baddie loop
   REPEAT
@@ -250,6 +250,9 @@ DEFPROC crackEdge(%k,%i,%j,%o,%a,%b)
   ; archaeologist(1), key(2), amulet(3), baddie(4) or treasure(5)
   %w=1: ; 1 point for unlocking a tomb either way
   IF %j=1 THEN %t=%t-1:%w=25: SPRITE %55+ INT {LEVEL}+1,,,52,1: ELSE IF %j=2 THEN %w=25:%t=%t-1: ELSE IF %j=3 THEN %P(3)=%1: PROC takeLife(%0): ELSE IF %j=5 THEN %w=5
+
+  ; open the door
+  IF %t=1 THEN SPRITE %55,,,,0: SPRITE CONTINUE %55, STOP , STOP ,%57 TO %60, BIN 11000010,255,0
 
   %T(i)=%j+8: ; prevent the tomb from being reopened
 
@@ -549,7 +552,7 @@ DEFPROC initTombs()
   FOR %i=%0 TO %3
     %T(W(i))=%$f1+i
   NEXT %i
-;   PRINT AT 22,0;"Hidden @ ";%W(3)
+  ;PRINT AT 22,0;"Hidden @ ";%W(1);",";%W(2)
 
   ; hides the baddie in a tomb
   %A[6]=%(W(3) MOD 5)*48+32+32
@@ -779,6 +782,8 @@ DEFPROC nextLevel(l)
 
   PROC printScore(% INT {(LEVEL-1)*50})
 
+  ; the locked door
+  SPRITE %55,%128,%32,%57,%1
 
   ; show how many archaeologist's are left to save
   FOR %i=2 TO LEVEL
