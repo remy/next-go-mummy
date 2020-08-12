@@ -923,8 +923,8 @@ DEFPROC helpScreen()
   PRINT AT %y+2,2;"those muppets and bring them"
   PRINT AT %y+3,2;"back to Blighty."
   PRINT AT %y+5,2;"Surround the tombs to find the"
-  PRINT AT %y+6,2;"archaeologist and key to escape"
-  PRINT AT %y+7,2;"their contents. And remember:"
+  PRINT AT %y+6,2;"archaeologist and key to escape."
+  PRINT AT %y+7,2;"And remember:"
   PRINT AT %y+9,2;"DON'T GET CHOMPED!"
 
   PAPER 0: INK 252
