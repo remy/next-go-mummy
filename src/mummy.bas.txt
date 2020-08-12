@@ -358,8 +358,7 @@ DEFPROC takeLife(%a)
   ; note that %i increments beyond the max value
   SPRITE %46,%14,%36+(i*14),56,%P(3)
 
-  PAUSE 5
-  IF %a THEN PROC setBorder(%$168-C( INT {LEVEL}))
+  IF %a THEN FOR %i=0 TO 3: PAUSE 1: NEXT %i: PROC setBorder(%$168-C( INT {LEVEL}))
 ENDPROC
 ;
 DEFPROC up(%z): ; move up
