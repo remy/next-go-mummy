@@ -810,9 +810,9 @@ DEFPROC optionsScreen()
   DIFFICULTY=0
   %z=0
 
-  PRINT AT %y+1,5;"Speed of nasties ?"
+  PRINT AT %y+1,5;"Speed of guardians ?"
   PRINT AT %y+3,5;"[1] I'm a kid, be gentle"
-  PRINT AT %y+5,5;"[2] regular speed"
+  PRINT AT %y+5,5;"[2] Regular speed"
   PRINT AT %y+7,5;"[3] BRING IT ON!!!"
   PAUSE 100
   REPEAT
@@ -846,7 +846,7 @@ DEFPROC optionsScreen()
   ;PRINT AT %y+1,30;DIFFICULTY
   PRINT AT %y+(j*2+1),5; INVERSE 1;" ";%j;" "
   IF %j=1 THEN PRINT AT %y+10,5;"You got it!"
-  IF %j=2 THEN PRINT AT %y+10,5;"The nasties beg to differ"
+  IF %j=2 THEN PRINT AT %y+10,5;"The guardians beg to differ"
   IF %j=3 THEN PRINT AT %y+10,5;"RAAAAAAAAA!!!"
 
   REPEAT : REPEAT UNTIL INKEY$ ="": ; wait until the key is up again
@@ -863,7 +863,7 @@ DEFPROC optionsScreen()
     SPRITE MOVE INT
     c$= INKEY$
     IF c$="y" THEN MUSIC=1: PRINT AT %y+3,5; INVERSE 1;" y ": PRINT AT %y+10,3;"It's pretty banging isn't it?"
-    IF c$="n" THEN MUSIC=0: PRINT AT %y+5,5; INVERSE 1;" n ": PRINT AT %y+10,5;"Okay, shusshing now"
+    IF c$="n" THEN MUSIC=0: PRINT AT %y+5,5; INVERSE 1;" n ": PRINT AT %y+10,5;"Okay, shushing now"
   REPEAT UNTIL MUSIC < 2
 
   IF MUSIC=0 THEN DRIVER 50,4: ELSE DRIVER 50,2: DRIVER 50,3
@@ -888,7 +888,7 @@ DEFPROC creditScreen()
 
   PRINT AT %y+1,3;"Written by Remy Sharp";
   PRINT AT %y+2,3;"https://remysharp.com / @rem"
-  PRINT AT %y+4,3;"Sprites by Remy's kids"
+  PRINT AT %y+4,3;"Guardians by Remy's kids"
   PRINT AT %y+6,3;"Music by Richard Faulkner"
   ; font: https://spectrumcomputing.co.uk/entry/25364/ZX-Spectrum/The_8bit_Font_Collection
   PRINT AT %y+8,3;"Font by Paul van der Laan"
@@ -931,8 +931,8 @@ DEFPROC helpScreen()
   PRINT AT %y+2,2;"those muppets and bring them"
   PRINT AT %y+3,2;"back to Blighty."
   PRINT AT %y+5,2;"Surround the tombs to find the"
-  PRINT AT %y+6,2;"archaeologist and key to escape."
-  PRINT AT %y+7,2;"And remember:"
+  PRINT AT %y+6,2;"archaeologist and key to escape"
+  PRINT AT %y+7,2;"the way you came in. And remember:"
   PRINT AT %y+9,2;"DON'T GET CHOMPED!"
 
   PAPER 0: INK 252
@@ -993,7 +993,7 @@ DEFPROC helpScreen()
   PRINT AT %y+7,18;"P= right"
   PRINT AT %y+9,3;"H= halt / pause"
 
-  PRINT AT %y+11,3;"Surround each side of the tomb"
+  PRINT AT %y+11,3;"Crack each side of the tomb"
   PRINT AT %y+12,3;"to reveal the contents."
 
   PAPER 0: INK 252
@@ -1029,6 +1029,9 @@ DEFPROC playScreen()
   PRINT AT %y+4,8;"   Don't get eaten"
   PRINT AT 0,0; CHR$ 29; CHR$ 0
   BANK 11 ERASE %$2400,%$1c00,0: ; last 4k is black
+
+  PRINT AT %18,9; INK 180;"Can you beat ";H(1);"?"
+
   PRINT AT %21,0; PAPER 0; INK 252;"I-Instructions   O-Options    P-Play"
 
 ENDPROC
