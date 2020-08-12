@@ -249,7 +249,7 @@ DEFPROC crackEdge(%k,%i,%j,%o,%a,%b)
 
   ; archaeologist(1), key(2), amulet(3), baddie(4) or treasure(5)
   %w=1: ; 1 point for unlocking a tomb either way
-  IF %j=1 THEN %t=%t-1:%w=25: ELSE IF %j=2 THEN %w=25:%t=%t-1: ELSE IF %j=3 THEN %P(3)=%1: PROC takeLife(%0): ELSE IF %j=5 THEN %w=5
+  IF %j=1 THEN %t=%t-1:%w=25: SPRITE %55+ INT {LEVEL}+1,,,52,1: ELSE IF %j=2 THEN %w=25:%t=%t-1: ELSE IF %j=3 THEN %P(3)=%1: PROC takeLife(%0): ELSE IF %j=5 THEN %w=5
 
   %T(i)=%j+8: ; prevent the tomb from being reopened
 
