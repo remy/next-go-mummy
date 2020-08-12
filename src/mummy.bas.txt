@@ -679,11 +679,10 @@ ENDPROC
 DEFPROC youWin()
   LEVEL=1
   PROC setBorder(%0)
-  SPEED=3: ; GO FAST!
   %z=%S(3)
 
   ; update the score multiple
-  %i=% INT {SPEED}
+  %i=%3
   %j=% INT {DIFFICULTY}
   %P(2)=%(j-1)+i
 
