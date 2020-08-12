@@ -515,8 +515,7 @@ DEFPROC resetMusic()
 ENDPROC
 ;
 DEFPROC saveHighScore()
-  %i= INT H(1)
-  IF %P(1) > i THEN H(1)=%P(1): SAVE "assets/scores.bin" DATA H()
+  IF %P(1) > H(1) THEN H(1)=%P(1): SAVE "assets/scores.bin" DATA H()
 ENDPROC
 ;
 ; initBaddies: %A=Array[[x,y,spr,angle(0: x, 1: y),direction(0: backward, 1: forward),alive]] (allowing for more than 10 baddies)
