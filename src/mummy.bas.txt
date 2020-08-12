@@ -135,6 +135,10 @@ DEFPROC updatePlayer(%z)
   IF %( IN $dffe >> 1&1^1) THEN LET %j=%j+@0010: ; O
   IF %( IN $dffe >> 0&1^1) THEN LET %j=%j+@0001: ; P
 
+  ; ignore any moment on a new game for the first 10 cycles - to prevent previous
+  ; game input coming into the new level
+  IF %P(5) < 10 THEN %P(5)=%P(5)+1:%j=0
+
   ; NOTE I no longer do an early exit - this keeps the game speed constant, otherwise the baddies speed up
   ; IF %j&$0f=0 THEN LET %P=%$ffff: ENDPROC : ; play isn't moving, early exit
 
@@ -749,6 +753,7 @@ ENDPROC
 DEFPROC resetPlayerState()
   %P(3)=%0: ; has scroll / can kill baddie
   %P(4)=%$ffff: ; player last corner
+  %P(5)=%0: ; ticks
 ENDPROC
 ;
 DEFPROC nextLevel(l)
