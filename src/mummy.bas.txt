@@ -8,9 +8,9 @@
 RUN AT 3: REM @ 28Mhz
 ;
 ; ******** TODO *********
-;
-; - [ ] (bug) baddie can go off screen and crash the game
-; - [ ] (feat) show when you have amulet
+; - [x] (bug) at random times, you can't unlock tomb 4
+; - [x] (feat) show when you have amulet
+; - [x] (bug) baddie can go off screen and crash the game
 ; - [x] too fast until you lose a life
 ; - [x] bottom row - stuck if pointing down
 ;
@@ -86,7 +86,7 @@ DEBUG=0
 SPRITEON=1
 BOOT=0
 
-;IF NOT DEBUG THEN ON ERROR PROC exit()
+IF NOT DEBUG THEN ON ERROR PROC exit()
 
 PROC initOnce()
 PROC initNewGame()
@@ -195,6 +195,7 @@ DEFPROC checkTomb()
   IF %k THEN PROC getXTombs() TO %g,%h: ELSE PROC getYTombs() TO %g,%h
 
   ; note that index 20 is out of bounds and assigns to the junk element
+  ;PRINT AT 21,0;"g:";%g;",h:";%h;"  "
   IF %g < 20 THEN PROC crackEdge(%k,%g,%T(g),1,%@11011111,%@10111111)
   IF %h < 20 THEN PROC crackEdge(%k,%h,%T(h),0,%@01111111,%@11101111)
 
@@ -248,17 +249,26 @@ DEFPROC crackEdge(%k,%i,%j,%o,%a,%b)
 
   TILE 4,3 AT 0,%(3*j)+3 TO %u,%v
 
+  ; if we revealed a baddie, bring them to life, and kick them off
+  IF %j=4 THEN PROC revealBaddie()
+
   ; archaeologist(1), key(2), amulet(3), baddie(4) or treasure(5)
   %w=1: ; 1 point for unlocking a tomb either way
   IF %j=1 THEN %t=%t-1:%w=25: ELSE IF %j=2 THEN %w=25:%t=%t-1: ELSE IF %j=3 THEN %P(3)=%1: PROC takeLife(%0): ELSE IF %j=5 THEN %w=5
-
-  ; if we revealed a baddie, bring them to life, and kick them off
-  IF %j=4 THEN %A[6+4]=%$ff:%A[6+3]=3: SPRITE 1,,,%A[6+5]-4,1: SPRITE CONTINUE 1, STOP ,%A[7] TO %A[7]+16 STEP 1 RUN ,%A[6+5]-4 TO %A[6+5]-1, BIN 10,1,20
 
   %T(i)=%j+8: ; prevent the tomb from being reopened
 
   PROC printScore(%w)
 ENDPROC
+;
+; should only ever be called from crackEdge - a separate routine for ledgability
+DEFPROC revealBaddie()
+  %A[6+4]=%$ff
+  %A[6+3]=3
+  SPRITE 1,,,%A[6+5]-4,1
+  SPRITE CONTINUE 1, STOP ,%A[7] TO %A[7]+16 STEP 1 RUN ,%A[6+5]-4 TO %A[6+5]-1, BIN 10,1,20
+ENDPROC
+;
 ;
 ; leave tread marks
 DEFPROC treadMark(): ;down=0,up=2,left=4,right=6
@@ -308,7 +318,8 @@ DEFPROC updateBaddie()
   ; this handles an edge case whereby the baddie is being revealed from hiding
   ; and they're not on the right Y plane, so the distance to the next intersection is adjusted
   %v=%48
-  IF %(f-32) MOD 48 <> 0 THEN %v=%32: IF %j < 2 THEN %j=2
+;   IF %(f-32) MOD 48=0 THEN : ELSE %v=%32: IF %j < 2 THEN %j=%j+2: ELSE : PRINT AT 21,0;"done"
+  IF %(f-32) MOD 48 <> 0 THEN PROC updateBaddieAdjust()
 
   ; Note: I don't make use of the sprite mirror flag, instead I'm storing all the permutations of the sprite
   ; because I have room, and it means that I don't need an IF and subsequent SPRITE statement, i.e. the
@@ -320,7 +331,17 @@ DEFPROC updateBaddie()
   IF %j=3 THEN SPRITE CONTINUE %b,%f-v TO %f STEP % SGN {-z} RUN , STOP ,%e+2 TO %e+3, BIN 10,0,0: ENDPROC : ; left
 ENDPROC
 ;
+DEFPROC updateBaddieAdjust()
+  %v=%32
+  IF %j < 2 THEN %j=%j+2
+
+  ; if the baddie on the far right edge, the force them to go 16
+  IF %f=256 THEN IF %j=2 THEN %v=16
+ENDPROC
+;
+; modifies: j, i, k
 DEFPROC takeLife(%a)
+  LOCAL %i: LOCAL %j: LOCAL %k
   IF %a THEN BORDER 6
   %j=%P(0)-a
 
@@ -330,15 +351,16 @@ DEFPROC takeLife(%a)
 
   ; print hearts
   FOR %i=1 TO %j
-    SPRITE %50+i,%16,%32+(i*14),54,1
+    SPRITE %40+i,%16,%32+(i*14),54,1
   NEXT %i
 
   ; now print empty
   %k=%7-( INT {DIFFICULTY}*2)
   FOR %i=%j+1 TO %k
-    SPRITE %50+i,%16,%32+(i*14),55,1
+    SPRITE %40+i,%16,%32+(i*14),55,1
   NEXT %i
-  SPRITE %57,%14,%36+((k+1)*14),56,%P(3)
+  ; note that %i increments beyond the max value
+  SPRITE %46,%14,%36+(i*14),56,%P(3)
   IF %a THEN BORDER 0
 ENDPROC
 ;
@@ -522,16 +544,16 @@ DEFPROC initTombs()
   FOR %i=0 TO 20: ; note that index 20 is used for dumping invalid/out of bounds
     LET %T(i)=%$f0: ; this is 11110000 - each edge is the high nibble and set as closed/waiting to be masked later
   NEXT %i
+
   PROC pickRandom()
 
-  ; %W(3)=%4 :; use to force hidden baddie position
+;    %W(3)=%4: ; use to force hidden baddie position
 
   ; generates: scroll (0), archaeologist (1), key (2), hidden mummy/baddie (3)
   FOR %i=%0 TO %3
-    %T(W(i))=%T(W(i))+(i+1)
+    %T(W(i))=%$f1+i
   NEXT %i
-
-;   PRINT AT 22,0;"Hidden @ ";%W(0)
+;   PRINT AT 22,0;"Hidden @ ";%W(3)
 
   ; hides the baddie in a tomb
   %A[6]=%(W(3) MOD 5)*48+32+32
@@ -539,15 +561,15 @@ DEFPROC initTombs()
   SPRITE 1,%A[6],%A[7],,,
   ;
   ; treasures x 5
-  FOR %i=%4 TO %9
-    %T(W(i))=%T(W(i))+5
+  FOR %i=%4 TO %8
+    %T(W(i))=%$f5
   NEXT %i
 ENDPROC
 ;
 DEFPROC pickRandom()
-  LOCAL %n: LOCAL %p: LOCAL %t
+  LOCAL %n: LOCAL %t: LOCAL %v: LOCAL %i
+
   %v=20: ; select from 0-20 (excluding 20)
-  %p=14: ; pick 4 numbers
   %i=0
   ; init the 0-N array
   REPEAT
@@ -560,7 +582,7 @@ DEFPROC pickRandom()
     %W(v-i)=%R(t): ; W is our global (winning positions)
     %i=%i-1
     %R(t)=%R(i)
-  REPEAT UNTIL %i=(v-p)
+  REPEAT UNTIL %i=(v-9)
   ; pickings are in global array W
 ENDPROC
 ;
