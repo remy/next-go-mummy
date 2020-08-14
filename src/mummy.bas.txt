@@ -3,7 +3,7 @@
 #autoline 10,1
 ; Oh Mummy (clone) and to avoid any problem with the name, called Go Mummy!
 ; By Remy Sharp 2020 / @rem / https://remysharp.com
-; Full source code at https://github.com/remy/next-go-mummy/
+; Full commented source code at https://github.com/remy/next-go-mummy/
 ;
 RUN AT 3: REM @ 28Mhz
 ;
@@ -100,7 +100,7 @@ DEFPROC mainLoop()
       PROC gameLoop(): ; update logic and render
       ;IF DEBUG THEN BORDER 2
     REPEAT UNTIL %P(0)=0 OR (t=0): ; until zero lives
-    IF %t=0 THEN PROC nextLevel(LEVEL+1): ELSE PROC gameOver(): PROC initNewGame()
+    IF %t=0 THEN PROC freeze(): PROC nextLevel(LEVEL+1): ELSE PROC gameOver(): PROC initNewGame()
   REPEAT UNTIL 0: ; repeat forever
 ENDPROC
 ;
@@ -130,17 +130,18 @@ DEFPROC updatePlayer(%z)
   IF %j THEN IF %x MOD 48 THEN IF %(j&@1100)=j THEN %j=%j+q: ; add the x direction
 
   ; NOTE: these shifts aren't always needed, but it makes the code consistent
+  %i=% IN $dffe
   IF %( IN $fbfe >> 0&1^1) THEN LET %j=%j+@1000: ; Q
   IF %( IN $fdfe >> 0&1^1) THEN LET %j=%j+@0100: ; A
-  IF %( IN $dffe >> 1&1^1) THEN LET %j=%j+@0010: ; O
-  IF %( IN $dffe >> 0&1^1) THEN LET %j=%j+@0001: ; P
+  IF %i >> 1&1^1 THEN LET %j=%j+@0010: ; O
+  IF %i >> 0&1^1 THEN LET %j=%j+@0001: ; P
 
   ; ignore any moment on a new game for the first 10 cycles - to prevent previous
   ; game input coming into the new level
   IF %P(5) < 10 THEN %P(5)=%P(5)+1:%j=0
 
   ; NOTE I no longer do an early exit - this keeps the game speed constant, otherwise the baddies speed up
-  ; IF %j&$0f=0 THEN LET %P=%$ffff: ENDPROC : ; play isn't moving, early exit
+  IF %j&$0f=0 THEN LET %P=%$ffff: PAUSE 1: ; ENDPROC : ; play isn't moving, early exit
 
   ; the last direction is stored in the up/down/left/right routines
 
@@ -256,7 +257,7 @@ DEFPROC crackEdge(%k,%i,%j,%o,%a,%b)
   IF %j=1 THEN %t=%t-1:%w=25: SPRITE %55+ INT {LEVEL}+1,,,52,1: ELSE IF %j=2 THEN %w=25:%t=%t-1: ELSE IF %j=3 THEN %P(3)=%1: PROC takeLife(%0): ELSE IF %j=5 THEN %w=5
 
   ; open the door
-  IF %t=1 THEN SPRITE %55,,,,0: SPRITE CONTINUE %55, STOP , STOP ,%57 TO %60, BIN 11000010,255,0
+  IF %t=1 THEN SPRITE CONTINUE %55, STOP , STOP ,%57 TO %60, BIN 01100000,10,0: ;SPRITE %55,,,,0: SPRITE CONTINUE %55, STOP , STOP ,%57 TO %60, BIN 11000010,255,0
 
   %T(i)=%j+8: ; prevent the tomb from being reopened
 
@@ -461,14 +462,16 @@ DEFPROC pauseGame()
   TILE 16,3 AT 0,2 TO 8,11
 
   %i=13
-  TILE 1,1 AT 10,0 TO %i+0,10: ;  P
+  TILE 1,1 AT 10,0 TO %i+0,10: ; P
   TILE 1,1 AT 11,0 TO %i+1,10: ; A
   TILE 1,1 AT 12,0 TO %i+2,10: ; U
   TILE 1,1 AT 13,0 TO %i+3,10: ; S
   TILE 1,1 AT 14,0 TO %i+4,10: ; E
   TILE 1,1 AT 15,0 TO %i+5,10: ; D
 
-  PROC pressAnyKey()
+  REPEAT : REPEAT UNTIL INKEY$ =""
+  REPEAT : REPEAT UNTIL INKEY$ <> "" OR ( IN 31=16)
+  REPEAT : REPEAT UNTIL INKEY$ =""
 
   ; resume music if it wass on
   IF MUSIC THEN DRIVER 50,2: DRIVER 50,3
@@ -490,6 +493,7 @@ DEFPROC gameOver()
   TILE 16,3 AT 0,2 TO 8,12
   TILE 16,3 AT 0,2 TO 8,15
 
+  ; %j bool = we have a highscore
   LET %j=%P(1)= INT {H(1)}
 
   IF NOT MUSIC THEN : ELSE IF %j THEN  DRIVER 50,1,0,25: ELSE DRIVER 50,1,0,21
@@ -505,13 +509,13 @@ DEFPROC gameOver()
   TILE 1,1 AT 6,0 TO 21,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; E
   TILE 1,1 AT 7,0 TO 23,12: FOR %i=%0 TO %20: PAUSE 1: NEXT %i: ; R
 
-  IF %j THEN TILE 9,1 AT 7,1 TO 11,14: ELSE TILE 7,1 AT 0,1 TO 12,14: ; "you ded" / "hi score"
+  IF %j THEN TILE 9,1 AT 7,1 TO 11,14: ELSE TILE 7,1 AT 0,1 TO 12,14: ; "hi score" / "you ded"
   FOR %i=%0 TO %20: PAUSE 1: NEXT %i
 
   REPEAT : REPEAT UNTIL INKEY$ =""
   REPEAT : REPEAT UNTIL INKEY$ <> "" OR ( IN 31=16)
   PROC freeze(): ; not quite ideal, but it'll hopefully make the transition to main screen better
-  PROC saveHighScore()
+  IF %j THEN SAVE "assets/scores.bin" DATA H()
   REPEAT : REPEAT UNTIL INKEY$ =""
 
   SPRITE CLEAR
@@ -523,9 +527,6 @@ DEFPROC resetMusic()
   IF MUSIC THEN DRIVER 50,3
 ENDPROC
 ;
-DEFPROC saveHighScore()
-  IF %P(1) > H(1) THEN H(1)=%P(1): SAVE "assets/scores.bin" DATA H()
-ENDPROC
 ;
 ; initBaddies: %A=Array[[x,y,spr,angle(0: x, 1: y),direction(0: backward, 1: forward),alive]] (allowing for more than 10 baddies)
 ; note: i*j = j properties per baddie
@@ -695,6 +696,7 @@ DEFPROC youWin()
 
   SPRITE PRINT 0
   PAPER 252: INK 0: BORDER 0
+  PROC defrost()
   LOAD "assets/youdidit.sl2" LAYER
 
   LET %y=7
@@ -713,10 +715,11 @@ DEFPROC youWin()
 
   PROC resetFont()
   PAPER 0: INK 252
-  PRINT AT %y+14,13;"Onward adventurer!"
+  PRINT AT %y+15,13;"Onward adventurer!"
   PAPER 252: INK 0
 
   PROC pressAnyKey()
+  PROC freeze()
 ENDPROC
 ;
 DEFPROC freeze()
@@ -779,16 +782,17 @@ DEFPROC nextLevel(l)
   PROC resetPlayerState()
   PROC initSprites()
   IF %P(1)=0 THEN LAYER PALETTE 0,2,%$1ff
+
+  SPRITE %55,%128,%32,%57,%1: ; locked door
+  SPRITE %54,%128,%32,%60,%1: ; open - which is revealed later
+
   PROC initBaddies()
   PROC initTombs()
   PROC initGameVars()
-  PROC treadMark(): ; depends on player position
+  ;PROC treadMark(): ; depends on player position
   PROC takeLife(%0): ; renders the lives
 
   PROC printScore(% INT {(LEVEL-1)*50})
-
-  ; the locked door
-  SPRITE %55,%128,%32,%57,%1
 
   ; show how many archaeologist's are left to save
   FOR %i=2 TO LEVEL
