@@ -201,7 +201,7 @@ DEFPROC gameLoop()
   REPEAT
 # the baddies are held in an array %A (why didn't I use %B... no idea!) - but
 # because of this, I need to make sure I jump over the baddie attributes and
-# for reasons that escape me (probably simplicity), I decoded against a multi-
+# for reasons that escape me (probably simplicity), I decided against a multi-
 # dimensional array.
     %i=%b*6: ; 6 props (easy to mess this up!)
     IF % SPRITE CONTINUE b < 2 THEN PROC updateBaddie()
