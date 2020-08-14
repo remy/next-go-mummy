@@ -1,6 +1,22 @@
-# Oh Mummy - Spectrum Next clone
+# Go Mummy - Spectrum Next clone
 
 This is my working directory for a clone of Oh Mummy based on the CPC464 by Amsoft ported to the ZX Spectrum Next using NextBASIC.
+
+![](https://remysharp.com/images/devlog/gomummy.png)
+
+---
+
+**The completed game is available at https://remysharp.itch.io/go-mummy** (where you can donate if you'd like to… I'm sure you do!).
+
+The full source code is also here with heavy documentation throughout explaining some of my decisions and how I structured my code which I hope can help you with your own development.
+
+I also wrote a number of tools to help me develop this game:
+
+- Sprite, tiles, audio and bitmap tools: https://zx.remysharp.com
+- txt2bas, bas2txt and validator: https://github.com/remy/txt2bas
+- VS Code extension for NextBASIC: https://github.com/remy/vscode-nextbasic
+
+I've also completed a devlog here: https://remysharp.com/devlog/go-mummy
 
 ---
 
@@ -9,8 +25,6 @@ For the OG version, I've used the [Internet Archive's copy of the Oh Mummy](http
 - Sprites and tile maps created with my [ZX Sprite Tools](https://zx.remysharp.com/sprites/#tiles)
 - Coded mostly in VS Code using my [NextBASIC VS Code extension](https://marketplace.visualstudio.com/items?itemName=remysharp.nextbasic)
 - Dev previews in [Cspect](http://cspect.org/) then running hardware tests on my ZX Spectrum Next.
-
-I've also started a devlog here: https://remysharp.com/devlog/#oh-mummy
 
 ---
 

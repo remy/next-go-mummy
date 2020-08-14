@@ -12,9 +12,9 @@ they found themselves simply crying _"Oh Mummy!"_.
 In the modern day, you're tasked with the job of rescuing the archaeologists
 from their failed pyramid plundering.
 
-u must navigate five catacombs, avoiding the guardians, rescue those muppets and
-bring them back to Blighty. Surround the tombs to find the archaeologist and key
-to escape their contents.
+You must navigate five catacombs, avoiding the guardians, rescue those muppets
+and bring them back to Blighty. Surround the tombs to find the archaeologist and
+key to escape their contents.
 
 And remember: DON'T GET CHOMPED!
 
@@ -51,7 +51,7 @@ Want to beat the high score? Go hard and fast!
 ## Credits
 
 - Written by Remy Sharp / https://remysharp.com / @rem
-- Sprites by Remy's kids
+- Guardians and player sprite by Remy's kids
 - Music by Richard Faulkner
 - Font by Paul van der Laan / https://spectrumcomputing.co.uk/entry/25364/ZX-Spectrum/The_8bit_Font_Collection
 

@@ -1,10 +1,75 @@
 #program gomummy
 #autostart 10
 #autoline 10,1
+# *** INTRODUCTION ****
+# Where I've used "#" for a comment, I'm giving you, the reader, more insight.
+# When I've commented using ";" these appeared in the original source.
+#
+# The start of the code includes my index for variables, what they're used for
+# and importantly what variables are freely available for tempory use.
+#
+# Then follows the bank index which gives me a rough eye on how much memory I
+# have left to use. A bank is 16K and in some places I'm loading as little as
+# 200 bytes into the bank. Since I wasn't nearing the limit 48 bank limit on a
+# 1mb Next, I figured this was fine.
+#
+# The code is written to use integer expressions as much as possible as these
+# are much faster than "normal" variables - in particular because they're
+# integers rather than floats so there's no casting involved for NextBASIC.
+#
+# I've also avoided any GOTO calls, which might have made the code a little
+# trickier, but the performance of GOTO is expensive and I need to avoid this
+# for a fast game. Instead I use PROC calls which will see (I'm told) perf
+# improvements in time. I also found that forking logic into PROC routines
+# came with a cost, so in some places that it made sense, I've inlined the code
+# which means more to reason with when reading the code, but ultimately helps
+# performance. BASIC is not fast and even at 28Mhz there's a cost to writing
+# in this higher level language so legibility of code is exchanged for game
+# performance.
+#
+# Performance is key, and though the expression is stupid, it's a useful one to
+# keep referring to: **the fastest code is no code**
+#
+# To finally compound this, as you'll find, I have a very limited use of
+# variables. Part of this is because there's only 26 integer variables, and part
+# of this was because I didn't know the cost of using LOCAL and tended to avoid
+# it for code in the main game loop. So you'll see some bits of code that
+# _expect_ variables to be in place. I've tried to document this where possible
+# mostly for my own sanity! Much later on (too late for me), I discovered I
+# could use an integer array as alternative such that each array could hold it's
+# own 26 variables which would have allowed a lot more sensible code around temp
+# variables. You'll see I've used this technique in the %P variable which holds
+# the player state.
+#
+# This took me one pandemic lockdown, 4(ish) months and lots of stolen hours at
+# the weekend to write. Though out of the need for tools I also wrote an entire
+# suite of tools for art and audio over at https://zx.remysharp.com and my own
+# VSCode extension (also at that link) - so I think I've done ok.
+#
+# Questions, or bugs, please drop an issue on github:
+# https://github.com/remy/next-go-mummy/issues/new
+#
+# Thanks for reading and I hope you enjoy the game, and the source.
+#
+# - Remy, August 2020.
+
+# ------------------------------------------------------------------------------
+
+# The starting lines are used by the txt2bas generator. I wrote my own but it
+# has parity the version found on the Spectrum Next.
+# #program gives the default filename (excluding .bas)
+# #autostart <line> automatically starts my NextBASIC from the given line
+# #autoline <start>,<step> allows me to code without line numbers and generates
+#           the line numbers for me. The down side is I can't use GOTO, but for
+#           performance reasons I'm avoiding this anyway.
+
 ; Oh Mummy (clone) and to avoid any problem with the name, called Go Mummy!
 ; By Remy Sharp 2020 / @rem / https://remysharp.com
 ; Full commented source code at https://github.com/remy/next-go-mummy/
-;
+
+# When I started developing I used the 3.5Mhz speed (RUN AT 0) and only
+# increased this value as I needed it which forced me to think about how to
+# optimise performance - mostly through reducing the codebase.
 RUN AT 3: REM @ 28Mhz
 ;
 ; ******** TODO *********
@@ -77,10 +142,18 @@ RUN AT 3: REM @ 28Mhz
 ;
 ;PROC dT()
 
+# you might find some variables left over from previous logic, the BOOT variable
+# in particula I've noticed isn't used, but I'm not changing anymore lines of
+# code. The DEBUG variable I would switch on an off and you'll see in the game
+# loop, I'll use this to trigger certain events
 DEBUG=0
 SPRITEON=1
 BOOT=0
 
+# for some reason I decided that if the user interrupted the game using the
+# break key (a STOP error) that it would return to the menu and if we were in
+# the menu, it would then reset the machine - since I had messed with fonts,
+# banks and screen state so much, it makes sense to do a clean reset.
 IF NOT DEBUG THEN ON ERROR PROC exit()
 
 PROC initOnce()
@@ -91,11 +164,21 @@ PROC mainLoop()
 DEFPROC mainLoop()
   REPEAT
     REPEAT
+# SPRITEON would help me diagnise sprite positions over tiles
       ;IF DEBUG THEN IF INKEY$ ="s" THEN SPRITEON= NOT SPRITEON: SPRITE PRINT SPRITEON
+# I never did reach anywhere near the limits of memory, but this is still useful
+# to keep an eye on
       ;IF DEBUG THEN PRINT AT %1,%0;"mem=";%65536- USR 7962;" ": ; memory available....
       ;IF DEBUG THEN IF INKEY$ ="t" THEN %t=0: ; FIXME remove TESTING ONLY
       ;IF DEBUG THEN IF INKEY$ ="d" THEN %P(0)=0: ; FIXME remove TESTING ONLY
       ;IF DEBUG THEN IF INKEY$ ="w" THEN LEVEL=5:%t=0: ; FIXME remove TESTING ONLY
+
+# flipping the border on an off in the game loop would give a visual clue as to
+# how things are performing and whether there's a particular action that
+# triggers a slow down. In normal operation, a border bar would flicker on and
+# off in a particular location with a particular height. If the game slowed down
+# at all, the bar would grow in height telling me whatever I just did, needs
+# reviewing to see if I can reduce.
       ;IF DEBUG THEN BORDER 0
       PROC gameLoop(): ; update logic and render
       ;IF DEBUG THEN BORDER 2
@@ -106,22 +189,41 @@ ENDPROC
 ;
 ; start main game loop - we do only one thing at a time in the main loop
 DEFPROC gameLoop()
+# early on I was going to adjust the player speed, so this sat in a variable
+# but in the end it became hard coded to 8 pixels. I'm not sure why I didn't
+# refactor _out_ the variable - probably to allow myself to test it later
   PROC updatePlayer(%8)
+# you'll see mixed use of LET %x=1 and %x=1 - there's no rhyme or reason here.
+# when I started the game LET was required, some point along the way NextBASIC
+# was updated so it wasn't. I should probably remove the LET keyword if only
+# to reduce what NextBASIC has to parse.
   LET %b=1: ; baddie loop
   REPEAT
+# the baddies are held in an array %A (why didn't I use %B... no idea!) - but
+# because of this, I need to make sure I jump over the baddie attributes and
+# for reasons that escape me (probably simplicity), I decoded against a multi-
+# dimensional array.
     %i=%b*6: ; 6 props (easy to mess this up!)
     IF % SPRITE CONTINUE b < 2 THEN PROC updateBaddie()
     LET %b=%b+1
   REPEAT UNTIL %b=(c+1)
   IF INKEY$ ="h" THEN PROC pauseGame()
-  SPRITE MOVE INT  : ;without INT itseems TO RUN atinybitsmoother ON tombintersections
+  SPRITE MOVE INT  : ;without INT it seems to a tiny bit smoother on tomb intersections
   IF %m <> -1 THEN DRIVER 49,2,%m:%m=%-1: ; play the activated sound effect
+# the dT routine is from Simon Goodwin's (sort of) FPS timer
+# http://simon.mooli.org.uk/nextech/index.html#Timers
   ;PROC dT() TO %f: PRINT AT 0,0;%c;"@";%f;" ": ; f big = bad, small = good
 ENDPROC
 ;
 ; %z = speed of player
 DEFPROC updatePlayer(%z)
   PROC treadMark(): ; put treadmarks on the place we're about to move away from
+
+# the following code reads from both the joystick and the keyboard, I figured
+# the cost of doing checks for the user preference against the cost of just
+# supporting both out of the bag was negliable, and in the end it's 4 IN calls
+# with appropriate bit shift tests. I read from the joystick first, then check
+# the keyboard applying the same bit modifications to the %j variable.
 
   LET %j= IN 31: ; check the joystick and then keys
 
@@ -136,10 +238,21 @@ DEFPROC updatePlayer(%z)
   IF %i >> 1&1^1 THEN LET %j=%j+@0010: ; O
   IF %i >> 0&1^1 THEN LET %j=%j+@0001: ; P
 
+# this code ignores any user input for a brief moment just to prevent accidental
+# (joystick) movement left over from the previous level. I'm personally not a
+# big fan of this, but it makes sense for younger players who might fly out of
+# the starting position right into a baddie
   ; ignore any moment on a new game for the first 10 cycles - to prevent previous
   ; game input coming into the new level
   IF %P(5) < 10 THEN %P(5)=%P(5)+1:%j=0
 
+# if the user isn't moving then a lot of the code in this routine ends up being
+# a no-op, which is fine in itself, but if I exit early (like I used to) or if I
+# do not use a PAUSE 1 - the code runs faster than compared to moving which
+# causes this particular routine to finish faster (obviously) a quicker routine
+# means more baddie updates are called. So if the user doesn't move, the baddies
+# move faster. So to mitigate this (a bit), I use a PAUSE 1 to simulate some
+# logic being run and to try to level out the game speed.
   ; NOTE I no longer do an early exit - this keeps the game speed constant, otherwise the baddies speed up
   IF %j&$0f=0 THEN LET %P=%$ffff: PAUSE 1: ; ENDPROC : ; play isn't moving, early exit
 
@@ -156,6 +269,15 @@ DEFPROC updatePlayer(%z)
   ; so it'll be up in the 65K range, so this check against 255 is good enough
   IF %x > $ff THEN : LET %x=0: ELSE IF %x > 240 THEN : LET %x=240
 
+# most of the game the player spends time on a grid that fits nicely inside the
+# %y MOD 40 logic - except when they're in the starting position or trying to
+# exit the game. When that happens, the %y value is -16, which is 0xFFF0.
+# the %t value (based on the variable index) is a flag to say whether the player
+# can leave the level. It starts at 3 and when the picks up the key or the
+# archaeologist %t is decremented. If the player tries to move UP in a specific
+# location AND the %t value is 1, then they're leaving, so let them move, set %t
+# to zero (which in the main loop will trigger next level), set the sound effect
+# to index 2, printe the sprite and bail the routine.
   IF %t=1 THEN IF %j&@1000 AND (y=0) AND (x=96) THEN PROC up(%z):%t=0:%m=2: SPRITE 64,%x+32,%y+48,%s,%d: ENDPROC
   IF %y=$FFF0 OR (y=$FFF8) THEN : ELSE : IF %y > $ff THEN : LET %y=0: ELSE IF %y > 160 THEN : LET %y=160
 
@@ -165,10 +287,18 @@ DEFPROC updatePlayer(%z)
   ; check the 2nd tomb _after_ sprite render to help smooth out the movement
   PROC checkTomb()
 
+# SPRITE OVER is used for sprite collision testing which is new with NextBASIC
+# and incredibly useful. This reads as: check sprite 64 (our player) against the
+# sprites numbered 1 to c (%c is the total number of baddies).
+# If we have a collision, we update the display flag on the hit baddie and
+# handle the action for a hit. If %P(3) is true, then the player had the amulet
+# which means they're protected and we play a happy sound, if it's false (the
+# default/common path) then we play the hit sound (%m=5) and take 1 from their
+# life count.
   ; check if we're bumping into a baddie
   %i=% SPRITE OVER (64,1 TO c)
   IF %i=0 THEN ENDPROC
-  SPRITE %i,,,,0
+  SPRITE %i,,,,0: ; possibly this should be below the ENDPROC below
   %i=%i*6
   IF %A[i+4]=0 THEN ENDPROC : ; ignore hidden zombies/inactive baddies
   %A[i+4]=0
@@ -177,22 +307,56 @@ DEFPROC updatePlayer(%z)
 ENDPROC
 ;
 DEFPROC checkTomb()
+# this routine will check whether the player has gone from one intersection to
+# another, and if they have, it will crack each edge of the tombs they passed.
+# there's some tricky/playful maths in this routine to calculate direction,
+# aisles and nearby tomb index. There's also use of the PAUSE 1 trick to try
+# to normalise the runtime speed, since there's more maths inside of the
+# crackEdge routine, and this is called twice. If you play the game and reveal
+# two tombs at once, you'll notice a slight hang in gameplay - this is the
+# effect of the crackEdge calling twice and running all the way through. Without
+# the PAUSE 1 in this routine, the player (and baddies) fly at full tilt which
+# is way too fast!
+
+# it's useful to get familiar with modulo, it's a useful maths function, and in
+# this case, it's saying: if there's any remainder on x / 48 or any remainder on
+# y / 40 - then we're not on an intersection, so exit the routine.
+
   ; IIRC the PAUSE 1 is to attempt to match the timing if the player _had_ openned a tomb
   IF %(x MOD 48) OR (y MOD 40) THEN PAUSE 1: ENDPROC : ; only run on corners
   LET %i=%(6*(y/40))+(x/48): ; x/y as aisle index (6 aisles for 5 rows of tombs)
 
+# I don't really think this saves on performance, but it's a cost free (perf)
+# way of saving me some brain cycles and actually a few less bytes. But mostly
+# for my own ability to reason with the code.
   %e=%P(4): ; shorthand help - saves looking up all the time
 
+# %e is another global which tracks our last position
   IF %i=e THEN PAUSE 1: ENDPROC : ; we were just there (%e is last position)
   IF %e=$ffff THEN %P(4)=%i: PAUSE 1: ENDPROC
 
   %f=%i-e: ; f is forward +1 or backward -1
   %k=% ABS SGN {f}=1: ; k tracks the axis, +1 for X, 0 for Y
 
+# I've used SGN for my own sanity (again). I _could_ skip using it in a
+# comparison by doing IF %f > $7fff but it's a single ROM call and I think it's
+# not so bad - though I have used similar tricks like this in my code later.
+
   ; important: %g is assigned here and used within getXTombs and getYTombs
   IF % SGN {f < 0} THEN %g=%e: ELSE %g=%i
 
   IF %k THEN PROC getXTombs() TO %g,%h: ELSE PROC getYTombs() TO %g,%h
+
+# %g and %h represent the two tomb indices that the player just walked past.
+# there's 20 tombs, so the index is from 0 to 19, but for performance the calcs
+# will return 20 when the player walked pass a wall edge, ie. tomb index 0 has
+# two edges that are against the wall of the game (top and left) so if the
+# player goes past one of thos edges, we'll get an index of 20 - which is a fake
+# value (and you'll see below). This saves on code needed to make an extra
+# changes or handling the edge case.
+# The binary value passed into to crackEdge indicates which walled edge should
+# cracked. The tomb has a byte split into two nibbles, one for the contents of
+# the tomb and one for the four walls (the high nibble).
 
   ; note that index 20 is out of bounds and assigns to the junk element
   ;PRINT AT 21,0;"g:";%g;",h:";%h;"  "
@@ -202,6 +366,10 @@ DEFPROC checkTomb()
   %P(4)=%f+e: ; save the last position (reverting from %f we lost %i)
 ENDPROC
 ;
+# the purpose of getXTombs and getYTombs is to take an intersection index (%g)
+# which ranges from 0-29 seen here: https://remysharp.com/images/devlog/mummy-board.png
+# then using the maths below, I'll get back the two tomb index that the player
+# is adjacent to.
 ; getXTombs: get tombs above and below of player
 DEFPROC getXTombs()
   ; %g from checkTomb
@@ -222,8 +390,17 @@ DEFPROC getYTombs()
   IF %v=1 THEN %i=%g-6-(g/6): ENDPROC =21,%i+1: ; completed on right edge
 ENDPROC =%g-6-(g/6),21: ; case 0 = completed on left edge
 ;
+# I got a bit sloppy when it came to documenting my params, still:
+# %k {boolean} true/1 = on X axis, false/0 = on Y axis
+# %i {int} tomb index
+# %j {int} tomb value
+# %o {int} 0-1 tomb position relative to play (0=left/top, 1=right/bottom)
+# %a {int} mask to apply to top/left tomb
+# %b {int} mask to apply to bottom/right tomb
 DEFPROC crackEdge(%k,%i,%j,%o,%a,%b)
-  ; cache the curent value, and if it doesn't change, nothing to do / endproc
+
+# when the 8 value bit is set it means the tomb has been opened already and we
+# can exit early
   IF %j&8=8 THEN ENDPROC
 
   %u=%2+((i MOD 5)*6): ; map X to the x coord in tile offset
@@ -245,10 +422,16 @@ DEFPROC crackEdge(%k,%i,%j,%o,%a,%b)
   ; open tomb (ie. slightly different colour)
   TILE 4,3 AT 0,3 TO %u,%v
 
+# when the sound effect is already set to index 4 (key or archaeologist) then
+# we stick to this using the IF THEN <empty> trick which allows me to nest
+# another IF statement and use an ELSE without it being caught by the top level
+# IF statement. It looks weird, but it's the cost of not using GOTO statements
   IF %m=4 THEN : ELSE : IF %j=0 OR (j=4) THEN %m=0: ELSE IF %j > 2 THEN %m=1: ELSE %m=4:
 
   TILE 4,3 AT 0,%(3*j)+3 TO %u,%v
 
+# below I'm using an IF with a PROC call, this was for legibility because I had
+# four statements under the THEN and the call has a low probability of happening
   ; if we revealed a baddie, bring them to life, and kick them off
   IF %j=4 THEN PROC revealBaddie()
 
@@ -256,8 +439,16 @@ DEFPROC crackEdge(%k,%i,%j,%o,%a,%b)
   %w=1: ; 1 point for unlocking a tomb either way
   IF %j=1 THEN %t=%t-1:%w=25: SPRITE %55+ INT {LEVEL}+1,,,52,1: ELSE IF %j=2 THEN %w=25:%t=%t-1: ELSE IF %j=3 THEN %P(3)=%1: PROC takeLife(%0): ELSE IF %j=5 THEN %w=5
 
+# this is a small animation on the doorway the player comes through. The effect
+# is a bit of a cheap trick too, because under this sprite (#55) is another
+# sprite with the door in an open state. I needed to layer up these sprites
+# because when this animation finishes it automatically hides the sprite which
+# would "suddenly" reveal some footsteps (from when the player entered the game)
+# The BIN 01100000 reads as:
+# - bit 6: update pattern even when sprite is stationary
+# - bit 5: sprite is disabled when pattern reaches limits (otherwise it will loop)
   ; open the door
-  IF %t=1 THEN SPRITE CONTINUE %55, STOP , STOP ,%57 TO %60, BIN 01100000,10,0: ;SPRITE %55,,,,0: SPRITE CONTINUE %55, STOP , STOP ,%57 TO %60, BIN 11000010,255,0
+  IF %t=1 THEN SPRITE CONTINUE %55, STOP , STOP ,%57 TO %60, BIN 01100000,10,0
 
   %T(i)=%j+8: ; prevent the tomb from being reopened
 
@@ -268,19 +459,30 @@ ENDPROC
 DEFPROC revealBaddie()
   %A[6+4]=%$ff
   %A[6+3]=3
+# the hidden baddie/guardian is always at sprite index 1, and this sets them
+# inside the tomb then animates them in a frenzy as they move slowly on to the
+# playing field
   SPRITE 1,,,%A[6+5]-4,1
   SPRITE CONTINUE 1, STOP ,%A[7] TO %A[7]+16 STEP 1 RUN ,%A[6+5]-4 TO %A[6+5]-1, BIN 10,1,20
 ENDPROC
 ;
 ;
 ; leave tread marks
-DEFPROC treadMark(): ;down=0,up=2,left=4,right=6
+DEFPROC treadMark(): ;%P: down=0,up=2,left=4,right=6
   IF %P=$ffff THEN ENDPROC : ; didn't move
+# I'm not 100% sure why I decided to use bit shifting instead of division at
+# seemingly random places, though a bit shift, in theory, is going to be less
+# cpu cycles than a division function. Anyway, x >> 3 is the same as x / 8, so
+# yeah, sorry about that!
   IF %P > 3 THEN %i=%(x >> 3) MOD 2: ELSE %i=%(y >> 3) MOD 2: ; if left +1, right = -1
   ;
   %v=%(y >> 3)+2
   IF %v > 8000 THEN %v=%v MOD 8192: ; handle when player is in start position
 
+# originally I had 4 if statements and ideally I wouldn't want to run every one
+# of these statements _just_ to get the tread mark on the ground. So I managed
+# to refactor into a single statement which at best is one logic call, at worse
+# is two. Again: the fastest code is no code.
   ; IF %P=0 THEN TILE 2,1 AT 0,%26+i TO %x >> 3,%v
   ; IF %P=2 THEN TILE 2,1 AT 2,%26+i TO %x >> 3,%v+1
   ; IF %P=4 THEN TILE 1,2 AT %0+i,28 TO %x >> 3+1,%v
@@ -294,6 +496,20 @@ ENDPROC
 ; handle baddies
 ;
 DEFPROC updateBaddie()
+# the first iteration of this game had the baddies being updated (with SPRITE)
+# on every gameLoop call, but as soon as there were 3 or so baddies the game
+# would start to stutter and feel janky. The solution here is to use SPRITE
+# CONTINUE, which throws the animation logic across to ROM calls instead of
+# NextBASIC (user code, ie. mine) having to manage it. A which point I can have
+# something like 15 baddies flying around the screen without any jitter.
+#
+# The trick I'm using is to call SPRITE CONTINUE from one intersection to the
+# next. Only when the baddie stops moving is this routine called, and then the
+# coordinates of the baddie are read using the SPRITE AT call, a new random
+# direction is assigned and the baddie is told to animate to the next
+# intersection. The test in gameLoop with IF % SPRITE CONTINUE b < 2 reads as:
+# "if baddie b has stopping moving on both X and Y then..."
+
   ; if this baddie is dead, fast exit
   IF %A[i+4]=0 THEN ENDPROC
 
@@ -315,13 +531,18 @@ DEFPROC updateBaddie()
   ; save their direction
   %A[i+3]=%j
 
+# lol, it's not great that I've got code like this (there one other place
+# similar) but I don't dare change it in the hope that my game can just be done!
   ; FIXME what does this do?
   %A[(i*j)+2]=0
 
+# this updateBaddieAdjust is an edge case for when the baddie has just come out
+# of a tomb - because they're not on an intersection the distance they move
+# needs to be adjusted slightly. The logic got a bit hairy and required two IF
+# statements so I decided it should move to it's own routine.
   ; this handles an edge case whereby the baddie is being revealed from hiding
   ; and they're not on the right Y plane, so the distance to the next intersection is adjusted
   %v=%48
-;   IF %(f-32) MOD 48=0 THEN : ELSE %v=%32: IF %j < 2 THEN %j=%j+2: ELSE : PRINT AT 21,0;"done"
   IF %(f-32) MOD 48 <> 0 THEN PROC updateBaddieAdjust()
 
   ; Note: I don't make use of the sprite mirror flag, instead I'm storing all the permutations of the sprite
@@ -344,7 +565,13 @@ ENDPROC
 ;
 ; modifies: j, i, k
 DEFPROC takeLife(%a)
+# this is one of the few places I'm using LOCAL - which I avoided as I didn't
+# know the performance impact, but I'm using it here because the (normally) temp
+# variables %i, %j and %k were all in use during this part of the loop.
   LOCAL %i: LOCAL %j: LOCAL %k
+
+# this lets me change the border to red (0x1c0 in the full 512 specnext colours)
+# which creates a visual cue that a life has been lost
   IF %a THEN PROC setBorder(%$1c0)
 
   %j=%P(0)-a
@@ -363,9 +590,22 @@ DEFPROC takeLife(%a)
   FOR %i=%j+1 TO %k
     SPRITE %40+i,%16,%32+(i*14),55,1
   NEXT %i
+
+# the amulet is also rendered at this point - remember that %P() is the player
+# state, and 3 points to whether they have the amulet or not - which is used to
+# flip the visibility. There's quite a few SPRITE calls here (up to 6) but this
+# routine is only called when a life is lost or if the amulet is picked up, so
+# it won't interrupt the playback speed much
   ; note that %i increments beyond the max value
   SPRITE %46,%14,%36+(i*14),56,%P(3)
 
+# if they lost a life (%a != 0) then I cause a 3 frame lockup which forcibly
+# halts the game and then I set the border back to what it was previously. This
+# gives the player a much clearer idea that something bad happened.
+# The for/pause/next is used because whilst the player is giving the spectrum
+# input (via keyboard or joystick) it'll interrupt the PAUSE routine and exit,
+# so calling it with PAUSE 1 in a loop ensures that the game really is halted
+# for this amount of time.
   IF %a THEN FOR %i=0 TO 3: PAUSE 1: NEXT %i: PROC setBorder(%$168-C( INT {LEVEL}))
 ENDPROC
 ;
@@ -373,6 +613,9 @@ DEFPROC up(%z): ; move up
   %q=8
   %P=2: ; I'm fairly certain that q and P do pretty much the same thing
   %y=%y-z
+# %d is the display flag, so you'll see this being flipped with bitwise
+# operations. I wrote myself a tool some time ago that helps me a lot with these
+# bits of code at https://bitcalc.app
   %d=%d^@1000
   %s=50
 ENDPROC
@@ -415,6 +658,9 @@ DEFPROC printScore(%i)
   %P(1)=%P(1)+(i*P(2))
   %w=%P(1)
 
+# if the score has exceeded the high score, then I change the palette value
+# that's being used for the INK to a hotpink (instead of white). This is later
+# reset on new game.
   IF %w > INT {H(1)} THEN H(1)=%w: LAYER PALETTE 0,2,%$1c5:
 
   w$=""
@@ -438,6 +684,9 @@ ENDPROC
 ;
 ; %n = 512 colour index
 DEFPROC setBorder(%n)
+# this routine allows me to change the border of the screen to any of the 512
+# colours that are available to the spectrum next. Without it, I'd only have 7
+# colours which would be sad!
   LAYER 1,0: PALETTE DIM 9
   BANK 28 DPOKE %(512+32),%((n&1) << 8)+(n >> 1): ; poke 16bit little endian next colour
   BORDER 0
@@ -450,17 +699,24 @@ DEFPROC pauseGame()
   ; note that this tiles with a black with priority set, so it will sit above sprites
   LAYER 2,1
 
+# this statement will copy the middle third of the screen to a backup bank
+# allowing me to print over the layer and then when I return control from the
+# pause, I'll load the data back into bank 10 and the screen will restore.
   ; backup the screen
   BANK 10 COPY TO 30
 
   ; stop the music
   DRIVER 50,4
 
+# this code briefly also swaps out the active tile set being used (so it's
+# restored right before we exit)
   ; paint it black
   TILE DIM 26,0,16,8
   TILE 16,3 AT 0,2 TO 8,8
   TILE 16,3 AT 0,2 TO 8,11
 
+# this should really be TILE 1,6 - but for some reason it isn't. I suspect
+# because I copied it from the gameOver routine.
   %i=13
   TILE 1,1 AT 10,0 TO %i+0,10: ; P
   TILE 1,1 AT 11,0 TO %i+1,10: ; A
@@ -469,6 +725,8 @@ DEFPROC pauseGame()
   TILE 1,1 AT 14,0 TO %i+4,10: ; E
   TILE 1,1 AT 15,0 TO %i+5,10: ; D
 
+# I've used this pattern a lot in the game, it says: continue only when we get
+# one clean intentional keypress (or joystick fire button)
   REPEAT : REPEAT UNTIL INKEY$ =""
   REPEAT : REPEAT UNTIL INKEY$ <> "" OR ( IN 31=16)
   REPEAT : REPEAT UNTIL INKEY$ =""
@@ -485,6 +743,18 @@ ENDPROC
 ;
 DEFPROC gameOver()
   PAPER 0: INK 255
+
+# the game over took me a while to solve. I wanted a section that sits in the
+# middle of the screen over everything saying the game hand ended. This worked
+# for the most part, but LAYER 2 sits below the SPRITE layer, so if a sprite was
+# in the middle of the screen, they would sit on top of the box - not good.
+# Tucked away in the zx next palette is a single bit flag on the colour that if
+# set is called "priority" which prints over *everything* - sprites included.
+# So I went about upgrading my tooling https://zx.remysharp.com/sprites/#palette
+# and configured a custom palette file (assets/mummy.pal) which has two blacks
+# one with priority and one without (for normal printing).
+# Now when I use tiles with these colours, they correctly sit above everything.
+# I also made a video explaining: https://www.youtube.com/watch?v=q02u7w27dqU
 
   ; note that this tiles with a black with priority set, so it will sit above sprites
   LAYER 2,1
@@ -514,6 +784,11 @@ DEFPROC gameOver()
 
   REPEAT : REPEAT UNTIL INKEY$ =""
   REPEAT : REPEAT UNTIL INKEY$ <> "" OR ( IN 31=16)
+
+# you might have spotted freeze and defrost potted around the code. They're used
+# to make seamless transitions between screens, rather than being able to see
+# the screen being rendered
+
   PROC freeze(): ; not quite ideal, but it'll hopefully make the transition to main screen better
   IF %j THEN SAVE "assets/scores.bin" DATA H()
   REPEAT : REPEAT UNTIL INKEY$ =""
@@ -522,6 +797,9 @@ DEFPROC gameOver()
 ENDPROC
 ;
 DEFPROC resetMusic()
+# The music uses NextDAW's driver (assigned to 50) and excellent music by
+# Richard Faulkner who volunteered after I put out a request on the NextBASIC
+# FB groups.
   DRIVER 50,1,0,20: ; reset to the main music
   DRIVER 50,2
   IF MUSIC THEN DRIVER 50,3
@@ -531,6 +809,13 @@ ENDPROC
 ; initBaddies: %A=Array[[x,y,spr,angle(0: x, 1: y),direction(0: backward, 1: forward),alive]] (allowing for more than 10 baddies)
 ; note: i*j = j properties per baddie
 DEFPROC initBaddies()
+# the baddie array evolved over time. One thing to note here is that the array
+# is an integer array that can hold more than 64 elements inside of %A
+# (otherwise you'd see parenthesis instead of (square) backets). However, after
+# moving to using SPRITE CONTINUE really only these indices are used:
+# - 3: direction
+# - 4: alive or dead
+# - 5: sprite pattern
   LET %j=6: ;n props
   FOR %i=1 TO %c
     LET %A[i*j]=%( RND 6)*48: ; 0 = x
@@ -545,20 +830,31 @@ DEFPROC initBaddies()
 ENDPROC
 ;
 DEFPROC initTombs()
+# the tombs array is 21 elements long with the last element used as a tmp value.
+# the value stored in the tomb is initially two nibbles, most significant nibble
+# contains the wall state, the low nibble is what the tomb contains.
+# So 0xF0 is all walls closed and an empty tomb
   FOR %i=0 TO 20: ; note that index 20 is used for dumping invalid/out of bounds
     LET %T(i)=%$f0: ; this is 11110000 - each edge is the high nibble and set as closed/waiting to be masked later
   NEXT %i
 
+# This routine will set random values in %W which holds 9 unique random numbers
+# from 0-19 which are used to assign content to randomly selected tombs
   PROC pickRandom()
-
-;    %W(3)=%4: ; use to force hidden baddie position
 
   ; generates: scroll (0), archaeologist (1), key (2), hidden mummy/baddie (3)
   FOR %i=%0 TO %3
     %T(W(i))=%$f1+i
   NEXT %i
-  ;PRINT AT 22,0;"Hidden @ ";%W(1);",";%W(2)
 
+  ;PRINT AT 22,0;"Hidden @ ";%W(1);",";%W(2) :; peek inside a tomb for debugging
+
+# reading the code below in the cold hard light, I realise it's a bug, but
+# luckily it has no effect. Really this should have been set on %A[1] and %A[2]
+# to point to the first baddie (which is hidden in a tomb). Except it points to
+# the 2nd baddie (which even on level 1 there's always 2) and set's _their_
+# x,y value, but because the x,y values aren't used (I use SPRITE AT instead),
+# it has no side effects. Phew!
   ; hides the baddie in a tomb
   %A[6]=%(W(3) MOD 5)*48+32+32
   %A[7]=%(W(3)/5)*40+24+48
@@ -572,7 +868,11 @@ ENDPROC
 ;
 DEFPROC pickRandom()
   LOCAL %n: LOCAL %t: LOCAL %v: LOCAL %i
-
+# this logic is based on the Fisher-Yates/Knuth shuffle and partly based on
+# http://rosettacode.org/wiki/Knuth_shuffle#Sinclair_ZX81_BASIC but IIRC I made
+# modifications to optimise and ensure I got the points I needed. I'd try to
+# explain it, but it's easier all round if you familiarise yourself with the
+# shuffle - it's very useful!
   %v=20: ; select from 0-20 (excluding 20)
   %i=0
   ; init the 0-N array
@@ -638,15 +938,24 @@ ENDPROC
 DEFPROC initOnce()
   PROC loadAssets(): ; separate load allows for future single tape loader
 
+# %m is the sound effects which are triggered in the game loop, rather than on
+# demand which is nice for avoiding any collision of effects
   %m=%-1
+
+# these low use variables are floats and I rarely touch them in the code
   PLAYING=0
   DIFFICULTY=2
   SPEED=2
 
+# these are the three speed options
   %S(1)=%4
   %S(2)=%8
   %S(3)=%12
 
+# these are the level colour adjusts. Again, because I use a custom palette,
+# when you start a new level, the adjust value is picked from the array below
+# using the index value from the current level and the colours used in the tombs
+# are adjusted in the palette. It makes for a cheap effect.
   %C(1)=%0
   %C(2)=%16
   %C(3)=%236
@@ -658,6 +967,9 @@ DEFPROC initOnce()
   ; init the sound effects
   DRIVER 49,1,29
 
+# This loads a custom font (with CHR$ 2) and originally I compressed the font
+# down to 7px wide - it's commented out here, but I'm pretty sure I use this
+# method to squeeze in a few more characters.
   ; font
   DPOKE 23606,63744: ; 64000-256
   LAYER 2,1
@@ -670,6 +982,8 @@ DEFPROC initOnce()
   LAYER PALETTE 0 BANK 28,0
   LAYER PALETTE 0
 
+# I can't remember where I picked up this POKE but it's useful for menus and not
+# having to check two characters (like 'P' and 'p').
   POKE 23658,0: ; turn off CAPS LOCK (for menu items)
 ENDPROC
 ;
@@ -689,6 +1003,9 @@ DEFPROC youWin()
   PROC setBorder(%0)
   %z=%S(3)
 
+# if the player completes all 5 levels I congratulate them, and then CRANK UP
+# the game speed to full whack - to which they'll usually die on level 2. Yep,
+# it's mean, but fun for me :)
   ; update the score multiple
   %i=%3
   %j=% INT {DIFFICULTY}
@@ -697,6 +1014,11 @@ DEFPROC youWin()
   SPRITE PRINT 0
   PAPER 252: INK 0: BORDER 0
   PROC defrost()
+
+# this LOAD ... LAYER is useful, but the drive IO costs a halt in the game play
+# which we feel the most when the music halts for a few milliseconds. But I
+# figured it won't happen often and it's a big enough visual change that the
+# player will let me get away with it.
   LOAD "assets/youdidit.sl2" LAYER
 
   LET %y=7
@@ -723,6 +1045,10 @@ DEFPROC youWin()
 ENDPROC
 ;
 DEFPROC freeze()
+# to allow for a more seamless transition from screen to screen, I'll call this
+# routine which puts the shadow layer in front and all further printing, tiles
+# etc, will be hidden (in banks 9-11) and when I'm ready, I'll call defrost
+# which throws away the shadow layer bringing all the new visuals into view.
   ; point Layer 2 to the shadow layer
   LAYER BANK 12,9
 ENDPROC
@@ -732,12 +1058,15 @@ DEFPROC defrost()
 ENDPROC
 ;
 DEFPROC initNewGame()
+# note that the welcome routine will wait for the player to press "P" before we
+# continue to the next routine calls.
   PROC welcome()
   PROC freeze()
   PROC initPlayerState()
   ; define player and game state
   %z=%S( INT {SPEED}): ; baddie speed
 
+# in the end I don't use this at all, meh.
   PLAYING=1
 
   PROC resetFont()
@@ -768,6 +1097,7 @@ DEFPROC nextLevel(l)
 
   %c=%j+1: ; baddies increase with each level
 
+# the LAYER PALETTE calls below are what change the entire "theme" of the level
   ; 0x150, 0x1f8, 0x1e8, 0x168
   ; offset values:
   ; yellow (0), orange (16), purple (236), party pink (82), green (128)
@@ -778,18 +1108,23 @@ DEFPROC nextLevel(l)
   LAYER PALETTE 0,35,%$1e8-i
   LAYER PALETTE 0,36,%$168-i
 
+# INK 2 is set to white but changed to hotpink when the player gets a high score
   PAPER 0: INK 2: ; note that ink 2 is changed on the fly
   PROC resetPlayerState()
   PROC initSprites()
   IF %P(1)=0 THEN LAYER PALETTE 0,2,%$1ff
 
+# this code is a bit stupid: it puts the closed door on top of the open door
+# and later the player is put on top of the closed door. The cost of logic to
+# close the door when the player started was too high to justify.
+# when the player has both the key and the archaeologist sprite 55 animates open
+# but when the animation ends it vanishes so the sprite 54 (beneath) is revealed
   SPRITE %55,%128,%32,%57,%1: ; locked door
   SPRITE %54,%128,%32,%60,%1: ; open - which is revealed later
 
   PROC initBaddies()
   PROC initTombs()
   PROC initGameVars()
-  ;PROC treadMark(): ; depends on player position
   PROC takeLife(%0): ; renders the lives
 
   PROC printScore(% INT {(LEVEL-1)*50})
@@ -809,6 +1144,8 @@ DEFPROC nextLevel(l)
 ENDPROC
 ;
 DEFPROC dT()
+# this is a routine to check the running speed of routines, I'd enable it on
+# demand to try to debug particular actions
   LET %g=% PEEK 23672
   LET %f=%g-n
   IF %g < n THEN LET %f=%f+256
@@ -816,6 +1153,10 @@ DEFPROC dT()
 ENDPROC =%f
 ;
 DEFPROC optionsScreen()
+# the header routine will clear out the screen and get it read for the text that
+# follows. The value being passed in is the bank number for the top 3rd of the
+# LAYER. The default 0 is "Go Mummy", but later you'll see header(34) which is
+# the "Oh Story!" 1/3rd of the layer.
   PROC header(0)
 
   LET %y=9
@@ -1020,6 +1361,11 @@ ENDPROC
 ;
 ; %i = BANK_ID
 DEFPROC header(%i)
+# this is a nice fast way to change the screen. I does mean I have to hold the
+# contents in a bank, but I had banks spare so I could allow it. It's certainly
+# faster than LOAD "screen.sl2" LAYER and it's a boat load faster than .bmpload
+# importantly, it allows me to have a variable top block. I wrote about how I
+# prepared these files here: https://remysharp.com/devlog/go-mummy/2020-08-09
   PAPER 252: INK 0: BORDER 0
   ; basically loading an SL2 file without the layer bit (and thus no file i/o)
   IF %i=0 THEN %i=31
@@ -1059,6 +1405,10 @@ DEFPROC welcome()
   SPRITE STOP : ; switch to batching (though pretty sure this isn't required)
   SPRITE PRINT 1
 
+# during the initial screen I wanted some activity without having to make
+# another game loop, so it's cool that I can use SPRITE CONTINUE again to run
+# the player along the bottom - which also gives you a nice hint as to the
+# speed and franticness of the game.
   LET %x=304: LET %y=208
   SPRITE 64,%x,%y,48,%@1001
   SPRITE 63,%x,%y,46,1
@@ -1094,6 +1444,11 @@ DEFPROC pressAnyKey()
 ENDPROC
 ;
 DEFPROC reportErr()
+# because I hammer the screen with so many layer changes, shadow swapping and so
+# on, when an error was thrown it was sometimes hard to make out what the error
+# actually was. So I wrote this routine for myself which could clean up the
+# screen and hopefully print the error. Most of the time it didn't work.
+# What can I say? This did though: LIST % DPEEK 23662
   ERROR TO err,lin,st
   e$= STR$ err
 
@@ -1114,10 +1469,22 @@ DEFPROC reportErr()
 ENDPROC
 ;
 DEFPROC exit()
+# because I had consumed banks, installed drivers and called various POKEs that
+# put the player's computer in an odd state, I figured that the best thing to do
+# was to restart the machine when they wanted to bail.
+# If the player hits break during the game, they're put back in the menu. If
+# they're in the menu, the machine restarts.
   ; use break to exit mid-game
   IF PLAYING THEN PROC initNewGame(): PROC mainLoop(): ENDPROC
+# this is my only GOTO call. It was here originally because this exit routine
+# combined my reportErr routine and some debug information, so I needed to jump
+# cleanly out (and it also let me test turning autoline off) - but in the end
+# refactoring meant that it has no real value. So really, the line on 9999
+# should just sit here. But, again, I'm not changing the code now!
   GO TO 9999
 ENDPROC
 ;
 #autoline
 9999 REG 2,1: ; soft reset
+
+# Thanks for reading – Remy
