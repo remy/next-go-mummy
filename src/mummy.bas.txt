@@ -6,7 +6,7 @@
 # When I've commented using ";" these appeared in the original source.
 #
 # The start of the code includes my index for variables, what they're used for
-# and importantly what variables are freely available for tempory use.
+# and importantly what variables are freely available for temporary use.
 #
 # Then follows the bank index which gives me a rough eye on how much memory I
 # have left to use. A bank is 16K and in some places I'm loading as little as
@@ -84,8 +84,8 @@ RUN AT 3: REM @ 28Mhz
 ; %d = player sprite flags (mirror, etc)
 ; H() = high scores (actually just one)
 ; %n = delta time counter (only used during dev, but needs to be reserved)
-; %P() = 0=lives, 1=score, 2=score multiple, 3=has scroll, 4=player last corner, used for tomb calc - initilised to $FFFF
-; %P = player last position, used for tread marks - initilised to $FFFF
+; %P() = 0=lives, 1=score, 2=score multiple, 3=has scroll, 4=player last corner, used for tomb calc - initialise to $FFFF
+; %P = player last position, used for tread marks - initialise to $FFFF
 ; %q = player last direction (whilst movement is engaged) - used for movement hacks
 ; %r = (flag) player has scroll and can kill a mummy
 ; %s = player sprite
@@ -128,7 +128,7 @@ RUN AT 3: REM @ 28Mhz
 ;
 ; The multiple logic is: x => (d-1)+s:
 ; This works out so that (s)peed = 1 and (d)iffulty = 1 has a multiple of 1,
-; and speed = 3 and diffulty = 3 has a multiple of 5.
+; and speed = 3 and difficulty = 3 has a multiple of 5.
 ;
 ; Action values:
 ; - level up: 50
@@ -143,7 +143,7 @@ RUN AT 3: REM @ 28Mhz
 ;PROC dT()
 
 # you might find some variables left over from previous logic, the BOOT variable
-# in particula I've noticed isn't used, but I'm not changing anymore lines of
+# in particular I've noticed isn't used, but I'm not changing anymore lines of
 # code. The DEBUG variable I would switch on an off and you'll see in the game
 # loop, I'll use this to trigger certain events
 DEBUG=0
@@ -164,7 +164,7 @@ PROC mainLoop()
 DEFPROC mainLoop()
   REPEAT
     REPEAT
-# SPRITEON would help me diagnise sprite positions over tiles
+# SPRITEON would help me diagnose sprite positions over tiles
       ;IF DEBUG THEN IF INKEY$ ="s" THEN SPRITEON= NOT SPRITEON: SPRITE PRINT SPRITEON
 # I never did reach anywhere near the limits of memory, but this is still useful
 # to keep an eye on
@@ -221,7 +221,7 @@ DEFPROC updatePlayer(%z)
 
 # the following code reads from both the joystick and the keyboard, I figured
 # the cost of doing checks for the user preference against the cost of just
-# supporting both out of the bag was negliable, and in the end it's 4 IN calls
+# supporting both out of the bag was negligible, and in the end it's 4 IN calls
 # with appropriate bit shift tests. I read from the joystick first, then check
 # the keyboard applying the same bit modifications to the %j variable.
 
@@ -277,7 +277,7 @@ DEFPROC updatePlayer(%z)
 # archaeologist %t is decremented. If the player tries to move UP in a specific
 # location AND the %t value is 1, then they're leaving, so let them move, set %t
 # to zero (which in the main loop will trigger next level), set the sound effect
-# to index 2, printe the sprite and bail the routine.
+# to index 2, print the sprite and bail the routine.
   IF %t=1 THEN IF %j&@1000 AND (y=0) AND (x=96) THEN PROC up(%z):%t=0:%m=2: SPRITE 64,%x+32,%y+48,%s,%d: ENDPROC
   IF %y=$FFF0 OR (y=$FFF8) THEN : ELSE : IF %y > $ff THEN : LET %y=0: ELSE IF %y > 160 THEN : LET %y=160
 
@@ -322,7 +322,7 @@ DEFPROC checkTomb()
 # this case, it's saying: if there's any remainder on x / 48 or any remainder on
 # y / 40 - then we're not on an intersection, so exit the routine.
 
-  ; IIRC the PAUSE 1 is to attempt to match the timing if the player _had_ openned a tomb
+  ; IIRC the PAUSE 1 is to attempt to match the timing if the player _had_ opened a tomb
   IF %(x MOD 48) OR (y MOD 40) THEN PAUSE 1: ENDPROC : ; only run on corners
   LET %i=%(6*(y/40))+(x/48): ; x/y as aisle index (6 aisles for 5 rows of tombs)
 
@@ -384,7 +384,7 @@ DEFPROC getYTombs()
   ; this uses special logic for the left and right edge of the grid,
   ; otherwise when you complete tomb 4 (x:4, y:0) then it wrongly
   ; applies a completed edge to 5 (x:0, y:1). The logic below fixes
-  ; that - and returns '21' for a non existant/out of scope tomb
+  ; that - and returns '21' for a non existent/out of scope tomb
   %v=%(g+1) MOD 6
   IF %v > 1 THEN %i=%g-6-(g/6): ENDPROC =%i,%i+1: ; inner grid
   IF %v=1 THEN %i=%g-6-(g/6): ENDPROC =21,%i+1: ; completed on right edge
@@ -455,7 +455,7 @@ DEFPROC crackEdge(%k,%i,%j,%o,%a,%b)
   PROC printScore(%w)
 ENDPROC
 ;
-; should only ever be called from crackEdge - a separate routine for ledgability
+; should only ever be called from crackEdge - a separate routine for legibility
 DEFPROC revealBaddie()
   %A[6+4]=%$ff
   %A[6+3]=3
@@ -539,7 +539,7 @@ DEFPROC updateBaddie()
 # this updateBaddieAdjust is an edge case for when the baddie has just come out
 # of a tomb - because they're not on an intersection the distance they move
 # needs to be adjusted slightly. The logic got a bit hairy and required two IF
-# statements so I decided it should move to it's own routine.
+# statements so I decided it should move to its own routine.
   ; this handles an edge case whereby the baddie is being revealed from hiding
   ; and they're not on the right Y plane, so the distance to the next intersection is adjusted
   %v=%48
@@ -811,7 +811,7 @@ ENDPROC
 DEFPROC initBaddies()
 # the baddie array evolved over time. One thing to note here is that the array
 # is an integer array that can hold more than 64 elements inside of %A
-# (otherwise you'd see parenthesis instead of (square) backets). However, after
+# (otherwise you'd see parenthesis instead of (square) brackets). However, after
 # moving to using SPRITE CONTINUE really only these indices are used:
 # - 3: direction
 # - 4: alive or dead
